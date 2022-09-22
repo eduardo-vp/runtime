@@ -210,7 +210,8 @@ namespace System.Net.Sockets
             // to be scheduled for parallelizing processing of events.
             if (Interlocked.CompareExchange(ref _eventQueueProcessingRequested, 1, 0) == 0)
             {
-                ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: false);
+                // ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: false);
+                ThreadPool.UnsafeQueueHighPriorityWorkItemInternal(this);
             }
         }
 
