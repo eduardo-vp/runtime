@@ -285,9 +285,11 @@
     <Compile Include="$(CommonPath)System\Net\Sockets\SocketExceptionFactory.Unix.cs"
              Link="Common\System\Net\Sockets\SocketExceptionFactory.Unix.cs" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'windows'">
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'Windows'">
     <Reference Include="Microsoft.Win32.Primitives" />
     <Reference Include="System.Collections" />
+    <Reference Include="System.Collections.Concurrent" />
+    <Reference Include="System.Console" Condition="'$(Configuration)' == 'Debug'" />
     <Reference Include="System.Diagnostics.Tracing" />
     <Reference Include="System.Memory" />
     <Reference Include="System.Net.NameResolution" />
