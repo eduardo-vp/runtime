@@ -266,3 +266,4 @@ MembersMustExist : Member 'public void System.Runtime.Serialization.Serializatio
 TypesMustExist : Type 'System.Threading.Condition' does not exist in the reference but it does exist in the implementation.
 TypesMustExist : Type 'System.Threading.Lock' does not exist in the reference but it does exist in the implementation.
 TypesMustExist : Type 'System.Threading.LockHolder' does not exist in the reference but it does exist in the implementation.
+MembersMustExist : Member 'public void System.Threading.ThreadPool.UnsafeQueueHighPriorityWorkItemInternal(System.Threading.IThreadPoolWorkItem)' does not exist in the reference but it does exist in the implementation.
