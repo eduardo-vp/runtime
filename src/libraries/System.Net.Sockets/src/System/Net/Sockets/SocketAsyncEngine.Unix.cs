@@ -202,6 +202,13 @@ namespace System.Net.Sockets
             }
         }
 
+        private static readonly Action<IThreadPoolWorkItem> UnsafeQueueHighPriorityWorkItemInternal =
+            (Action<IThreadPoolWorkItem>)
+            Delegate.CreateDelegate(
+            typeof(Action<IThreadPoolWorkItem>),
+            typeof(ThreadPool),
+            "UnsafeQueueHighPriorityWorkItemInternal");
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ScheduleToProcessEvents()
         {
@@ -211,7 +218,7 @@ namespace System.Net.Sockets
             if (Interlocked.CompareExchange(ref _eventQueueProcessingRequested, 1, 0) == 0)
             {
                 // ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: false);
-                ThreadPool.UnsafeQueueHighPriorityWorkItemInternal(this);
+                UnsafeQueueHighPriorityWorkItemInternal(this);
             }
         }
 
