@@ -8,5 +8,4 @@ CannotRemoveAttribute : Attribute 'System.Runtime.Versioning.UnsupportedOSPlatfo
 CannotRemoveAttribute : Attribute 'System.Runtime.Versioning.UnsupportedOSPlatformAttribute' exists on 'System.Threading.ThreadPool.UnsafeRegisterWaitForSingleObject(System.Threading.WaitHandle, System.Threading.WaitOrTimerCallback, System.Object, System.Int64, System.Boolean)' in the contract but not the implementation.
 CannotRemoveAttribute : Attribute 'System.Runtime.Versioning.UnsupportedOSPlatformAttribute' exists on 'System.Threading.ThreadPool.UnsafeRegisterWaitForSingleObject(System.Threading.WaitHandle, System.Threading.WaitOrTimerCallback, System.Object, System.TimeSpan, System.Boolean)' in the contract but not the implementation.
 CannotRemoveAttribute : Attribute 'System.Runtime.Versioning.UnsupportedOSPlatformAttribute' exists on 'System.Threading.ThreadPool.UnsafeRegisterWaitForSingleObject(System.Threading.WaitHandle, System.Threading.WaitOrTimerCallback, System.Object, System.UInt32, System.Boolean)' in the contract but not the implementation.
-MembersMustExist : Member 'public void System.Threading.ThreadPool.UnsafeQueueHighPriorityWorkItemInternal(System.Threading.IThreadPoolWorkItem)' does not exist in the reference but it does exist in the implementation.
-Total Issues: 10
+Total Issues: 9

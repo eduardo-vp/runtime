@@ -285,7 +285,7 @@
     <Compile Include="$(CommonPath)System\Net\Sockets\SocketExceptionFactory.Unix.cs"
              Link="Common\System\Net\Sockets\SocketExceptionFactory.Unix.cs" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'Windows'">
+  <ItemGroup>
     <Reference Include="Microsoft.Win32.Primitives" />
     <Reference Include="System.Collections" />
     <Reference Include="System.Collections.Concurrent" />
@@ -301,6 +301,6 @@
     <Reference Include="System.Threading.ThreadPool" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'Unix'">
-    <ProjectReference Include="$(CoreLibProject)" />
+    <Reference Include="System.Threading.Thread" />
   </ItemGroup>
 </Project>
