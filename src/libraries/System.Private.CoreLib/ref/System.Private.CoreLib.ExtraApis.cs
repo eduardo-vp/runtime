@@ -37,3 +37,10 @@ namespace System.Diagnostics
         public static System.Diagnostics.DebugProvider SetProvider(System.Diagnostics.DebugProvider provider) { throw null; }
     }
 }
+namespace System.Threading
+{
+    public static partial class ThreadPool
+    {
+        public static void UnsafeQueueHighPriorityWorkItemInternal(System.Threading.IThreadPoolWorkItem callBack) { throw null; }
+    }
+}

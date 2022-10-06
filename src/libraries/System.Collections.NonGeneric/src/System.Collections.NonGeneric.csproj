@@ -17,7 +17,6 @@
              Link="Common\System\Collections\KeyValuePairs.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="System.Runtime" />
-    <Reference Include="System.Threading" />
+    <ProjectReference Include="$(CoreLibProject)" />
   </ItemGroup>
 </Project>
