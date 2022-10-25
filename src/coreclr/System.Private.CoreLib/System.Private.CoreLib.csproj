@@ -19,8 +19,13 @@
     <ILLinkDescriptorsXml>$(IntermediateOutputPath)ILLink.Descriptors.xml</ILLinkDescriptorsXml>
     <ILLinkDirectory>$(MSBuildThisFileDirectory)src\ILLink\</ILLinkDirectory>
 
-    <FeaturePortableThreadPool>true</FeaturePortableThreadPool>
-    <FeaturePortableTimer>true</FeaturePortableTimer>
+    <!-- <FeaturePortableThreadPool>true</FeaturePortableThreadPool> -->
+    <FeaturePortableThreadPool Condition="'$(FeaturePortableThreadPool)' == ''">false</FeaturePortableThreadPool>
+    <FeaturePortableThreadPool Condition="'$(TargetsUnix)' == 'true'">true</FeaturePortableThreadPool>
+
+    <!--<FeaturePortableTimer>true</FeaturePortableTimer> -->
+    <FeaturePortableTimer Condition="'$(FeaturePortableTimer)' == ''">false</FeaturePortableTimer>
+    <FeaturePortableTimer Condition="'$(TargetsUnix)' == 'true'">true</FeaturePortableTimer>
   </PropertyGroup>
 
   <ItemGroup>
@@ -291,7 +296,17 @@
     <Compile Include="$(CommonPath)Interop\Windows\OleAut32\Interop.VariantClear.cs">
       <Link>Common\Interop\Windows\OleAut32\Interop.VariantClear.cs</Link>
     </Compile>
-    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" Condition="'$(FeaturePortableTimer)' == 'true'"/> 
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetsWindows)'=='true' and '$(FeaturePortableThreadPool)' != 'true'">
+    <Compile Include="System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
+    <Compile Include="System\Threading\ThreadPool.Windows.cs" />
+    <Compile Include="System\Threading\ThreadPoolCallbackWrapper.cs" />
+    <Compile Include="System\Threading\Win32ThreadPoolBoundHandle.cs" />
+    <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
+    <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
+    <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
+    <Compile Include="System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(FeatureObjCMarshal)' == 'true'">
     <Compile Include="$(BclSourcesRoot)\System\Runtime\InteropServices\ObjectiveCMarshal.CoreCLR.cs" />
