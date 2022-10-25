@@ -299,14 +299,14 @@
     <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" Condition="'$(FeaturePortableTimer)' == 'true'"/> 
   </ItemGroup>
   <ItemGroup Condition="'$(TargetsWindows)'=='true' and '$(FeaturePortableThreadPool)' != 'true'">
-    <Compile Include="System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
-    <Compile Include="System\Threading\ThreadPool.Windows.cs" />
-    <Compile Include="System\Threading\ThreadPoolCallbackWrapper.cs" />
-    <Compile Include="System\Threading\Win32ThreadPoolBoundHandle.cs" />
-    <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
-    <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
-    <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
-    <Compile Include="System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolBoundHandle.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(FeatureObjCMarshal)' == 'true'">
     <Compile Include="$(BclSourcesRoot)\System\Runtime\InteropServices\ObjectiveCMarshal.CoreCLR.cs" />
