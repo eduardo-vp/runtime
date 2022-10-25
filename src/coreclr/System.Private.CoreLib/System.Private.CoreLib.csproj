@@ -117,6 +117,7 @@
   <PropertyGroup>
     <CommonPath>$([MSBuild]::NormalizeDirectory('$(LibrariesProjectRoot)', 'Common', 'src'))</CommonPath>
     <BclSourcesRoot>$(MSBuildThisFileDirectory)src</BclSourcesRoot>
+    <NativeAotBclSourcesRoot>$(MSBuildThisFileDirectory)..\nativeaot\System.Private.CoreLib\src</NativeAotBclSourcesRoot>
   </PropertyGroup>
 
   <!-- Compilation options -->
@@ -299,14 +300,14 @@
     <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" Condition="'$(FeaturePortableTimer)' == 'true'"/> 
   </ItemGroup>
   <ItemGroup Condition="'$(TargetsWindows)'=='true' and '$(FeaturePortableThreadPool)' != 'true'">
-    <Compile Include="$(BclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolBoundHandle.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolBoundHandle.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(FeatureObjCMarshal)' == 'true'">
     <Compile Include="$(BclSourcesRoot)\System\Runtime\InteropServices\ObjectiveCMarshal.CoreCLR.cs" />
