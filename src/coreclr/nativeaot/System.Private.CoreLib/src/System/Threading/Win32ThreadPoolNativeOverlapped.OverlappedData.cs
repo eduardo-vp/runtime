@@ -14,7 +14,7 @@ namespace System.Threading
             internal IOCompletionCallback? _callback;
             internal object? _state;
             internal ExecutionContext? _executionContext;
-            internal ThreadPoolBoundHandle _boundHandle;
+            internal ThreadPoolBoundHandle? _boundHandle;
             internal PreAllocatedOverlapped? _preAllocated;
             internal bool _completed;
 

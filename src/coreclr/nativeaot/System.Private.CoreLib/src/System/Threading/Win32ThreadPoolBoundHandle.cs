@@ -142,7 +142,7 @@ namespace System.Threading
         }
 
         [CLSCompliant(false)]
-        public static unsafe object GetNativeOverlappedState(NativeOverlapped* overlapped)
+        public static unsafe object? GetNativeOverlappedState(NativeOverlapped* overlapped)
         {
             if (overlapped == null)
                 throw new ArgumentNullException(nameof(overlapped));
@@ -153,7 +153,7 @@ namespace System.Threading
             return data._state;
         }
 
-        private static unsafe Win32ThreadPoolNativeOverlapped.OverlappedData GetOverlappedData(Win32ThreadPoolNativeOverlapped* overlapped, ThreadPoolBoundHandle expectedBoundHandle)
+        private static unsafe Win32ThreadPoolNativeOverlapped.OverlappedData GetOverlappedData(Win32ThreadPoolNativeOverlapped* overlapped, ThreadPoolBoundHandle? expectedBoundHandle)
         {
             Win32ThreadPoolNativeOverlapped.OverlappedData data = overlapped->Data;
 
