@@ -23,9 +23,12 @@ namespace System.Threading
         private IntPtr _nextFree; // if this instance if free, points to the next free instance.
         private int _dataIndex; // Index in _dataArray of this instance's OverlappedData.
 
-        internal OverlappedData Data
+        internal OverlappedData? Data
         {
-            get { return s_dataArray[_dataIndex]; }
+            get {
+                Debug.Assert(s_dataArray != null);
+                return s_dataArray[_dataIndex];
+            }
         }
 
         internal static unsafe Win32ThreadPoolNativeOverlapped* Allocate(IOCompletionCallback callback, object? state, object? pinData, PreAllocatedOverlapped? preAllocated, bool flowExecutionControl)
