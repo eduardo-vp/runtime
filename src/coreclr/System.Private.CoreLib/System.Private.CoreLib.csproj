@@ -313,7 +313,7 @@
   <ItemGroup Condition="'$(FeaturePortableThreadPool)' != 'true'">
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
-    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
+    <!-- <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" /> -->
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolBoundHandle.cs" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
