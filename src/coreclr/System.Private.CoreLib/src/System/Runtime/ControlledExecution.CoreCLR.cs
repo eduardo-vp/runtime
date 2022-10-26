@@ -118,8 +118,13 @@ namespace System.Runtime
             }
         }
 
-        [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ThreadNative_Abort")]
-        private static partial void AbortThread(ThreadHandle thread);
+        // [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ThreadNative_Abort")]
+        // private static partial void AbortThread(ThreadHandle thread);
+
+        private static void AbortThread(object o)
+        {
+
+        }
 
         [LibraryImport(RuntimeHelpers.QCall, EntryPoint = "ThreadNative_ResetAbort")]
         [SuppressGCTransition]
