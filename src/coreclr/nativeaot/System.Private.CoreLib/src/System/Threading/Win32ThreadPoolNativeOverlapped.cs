@@ -12,10 +12,10 @@ namespace System.Threading
     {
         // Per-thread cache of the args object, so we don't have to allocate a new one each time.
         [ThreadStatic]
-        private static ExecutionContextCallbackArgs t_executionContextCallbackArgs;
+        private static ExecutionContextCallbackArgs? t_executionContextCallbackArgs;
 
-        private static ContextCallback s_executionContextCallback;
-        private static OverlappedData[] s_dataArray;
+        private static ContextCallback? s_executionContextCallback;
+        private static OverlappedData[]? s_dataArray;
         private static int s_dataCount;   // Current number of valid entries in _dataArray
         private static IntPtr s_freeList; // Lock-free linked stack of free ThreadPoolNativeOverlapped instances.
 
@@ -112,7 +112,7 @@ namespace System.Threading
             }
         }
 
-        private void SetData(IOCompletionCallback callback, object? state, object? pinData, PreAllocatedOverlapped preAllocated, bool flowExecutionContext)
+        private void SetData(IOCompletionCallback callback, object? state, object? pinData, PreAllocatedOverlapped? preAllocated, bool flowExecutionContext)
         {
             Debug.Assert(callback != null);
 
