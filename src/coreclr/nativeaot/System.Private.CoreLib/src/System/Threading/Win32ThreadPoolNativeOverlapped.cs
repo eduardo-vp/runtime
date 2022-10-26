@@ -112,7 +112,7 @@ namespace System.Threading
             }
         }
 
-        private void SetData(IOCompletionCallback callback, object state, object pinData, PreAllocatedOverlapped preAllocated, bool flowExecutionContext)
+        private void SetData(IOCompletionCallback callback, object? state, object? pinData, PreAllocatedOverlapped preAllocated, bool flowExecutionContext)
         {
             Debug.Assert(callback != null);
 
