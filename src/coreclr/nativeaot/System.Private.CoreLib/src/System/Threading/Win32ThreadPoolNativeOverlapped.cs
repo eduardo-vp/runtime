@@ -28,7 +28,7 @@ namespace System.Threading
             get { return s_dataArray[_dataIndex]; }
         }
 
-        internal static unsafe Win32ThreadPoolNativeOverlapped* Allocate(IOCompletionCallback callback, object? state, object pinData, PreAllocatedOverlapped preAllocated, bool flowExecutionControl)
+        internal static unsafe Win32ThreadPoolNativeOverlapped* Allocate(IOCompletionCallback callback, object? state, object? pinData, PreAllocatedOverlapped preAllocated, bool flowExecutionControl)
         {
             Win32ThreadPoolNativeOverlapped* overlapped = AllocateNew();
             try
