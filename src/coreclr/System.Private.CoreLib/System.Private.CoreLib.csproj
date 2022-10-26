@@ -294,7 +294,7 @@
     <Compile Include="$(CommonPath)Interop\Windows\OleAut32\Interop.VariantClear.cs">
       <Link>Common\Interop\Windows\OleAut32\Interop.VariantClear.cs</Link>
     </Compile>
-    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" Condition="'$(FeaturePortableThreadPool)' == 'true'"/>
   </ItemGroup>
 
   <ItemGroup Condition="'$(FeaturePortableThreadPool)' == 'true'">
