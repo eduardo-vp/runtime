@@ -298,6 +298,9 @@
     <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.ThreadPoolIO.cs">
       <Link>Interop\Windows\Kernel32\Interop.ThreadPoolIO.cs</Link>
     </Compile>
+    <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.Timer.cs">
+      <Link>Interop\Windows\Kernel32\Interop.Timer.cs</Link>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup Condition="'$(FeaturePortableThreadPool)' == 'true'">
