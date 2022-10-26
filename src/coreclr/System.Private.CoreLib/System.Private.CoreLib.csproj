@@ -19,11 +19,9 @@
     <ILLinkDescriptorsXml>$(IntermediateOutputPath)ILLink.Descriptors.xml</ILLinkDescriptorsXml>
     <ILLinkDirectory>$(MSBuildThisFileDirectory)src\ILLink\</ILLinkDirectory>
 
-    <!-- <FeaturePortableThreadPool>true</FeaturePortableThreadPool> -->
     <FeaturePortableThreadPool Condition="'$(FeaturePortableThreadPool)' == ''">false</FeaturePortableThreadPool>
     <FeaturePortableThreadPool Condition="'$(TargetsUnix)' == 'true'">true</FeaturePortableThreadPool>
 
-    <!--<FeaturePortableTimer>true</FeaturePortableTimer> -->
     <FeaturePortableTimer Condition="'$(FeaturePortableTimer)' == ''">false</FeaturePortableTimer>
     <FeaturePortableTimer Condition="'$(TargetsUnix)' == 'true'">true</FeaturePortableTimer>
   </PropertyGroup>
@@ -292,7 +290,7 @@
     </Compile>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetsWindows)'=='true' and '$(FeaturePortableThreadPool)' == 'true'">
+  <ItemGroup Condition="'$(FeaturePortableThreadPool)' == 'true'">
     <Compile Include="$(BclSourcesRoot)\System\Threading\Interlocked.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Threading\Monitor.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Threading\SynchronizationContext.CoreCLR.cs" />
@@ -303,7 +301,7 @@
     <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetsWindows)'=='true' and '$(FeaturePortableThreadPool)' != 'true'">
+  <ItemGroup Condition="'$(FeaturePortableThreadPool)' != 'true'">
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
