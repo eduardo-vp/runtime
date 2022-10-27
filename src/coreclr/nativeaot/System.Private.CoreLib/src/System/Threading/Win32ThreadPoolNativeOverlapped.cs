@@ -121,7 +121,7 @@ namespace System.Threading
 
             OverlappedData? data = Data;
 
-            Assert(data != null);
+            Debug.Assert(data != null);
             data._callback = callback;
             data._state = state;
             data._executionContext = flowExecutionContext ? ExecutionContext.Capture() : null;
@@ -163,6 +163,7 @@ namespace System.Threading
         {
             // Reset all data.
             Debug.Assert(overlapped != null);
+            Debug.Assert(overlapped->Data != null);
             overlapped->Data.Reset();
             overlapped->_overlapped = default(NativeOverlapped);
 
