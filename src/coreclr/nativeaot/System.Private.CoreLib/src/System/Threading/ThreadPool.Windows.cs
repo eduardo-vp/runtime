@@ -19,7 +19,7 @@ namespace System.Threading
     public sealed class RegisteredWaitHandle : MarshalByRefObject
     {
         private readonly object _lock;
-        private SafeWaitHandle _waitHandle;
+        private SafeWaitHandle? _waitHandle;
         private readonly _ThreadPoolWaitOrTimerCallback _callbackHelper;
         private readonly uint _millisecondsTimeout;
         private bool _repeating;
@@ -111,6 +111,7 @@ namespace System.Threading
             }
 
             // We can use DangerousGetHandle because of DangerousAddRef in the constructor
+            Debug.Assert(_waitHandle != null);
             Interop.Kernel32.SetThreadpoolWait(_tpWait, _waitHandle.DangerousGetHandle(), (IntPtr)pTimeout);
         }
 
@@ -240,14 +241,14 @@ namespace System.Threading
 
         private static IntPtr s_work;
 
-        private class ThreadCountHolder
+        private sealed class ThreadCountHolder
         {
             internal ThreadCountHolder() => Interlocked.Increment(ref s_threadCount);
             ~ThreadCountHolder() => Interlocked.Decrement(ref s_threadCount);
         }
 
         [ThreadStatic]
-        private static ThreadCountHolder t_threadCountHolder;
+        private static ThreadCountHolder? t_threadCountHolder;
         private static int s_threadCount;
 
         [StructLayout(LayoutKind.Sequential)]

@@ -71,7 +71,10 @@ namespace System.Threading
             try
             {
                 Win32ThreadPoolNativeOverlapped* overlapped = Win32ThreadPoolNativeOverlapped.Allocate(callback, state, pinData, preAllocated: null, flowExecutionContext);
-                overlapped->Data._boundHandle = this;
+                Debug.Assert(overlapped != null);
+                var x = overlapped->Data;
+                Debug.Assert(x != null);
+                x._boundHandle = this;
 
                 Interop.Kernel32.StartThreadpoolIo(_threadPoolHandle);
 
@@ -97,7 +100,8 @@ namespace System.Threading
                 addedRefToThis = AddRef();
                 addedRefToPreAllocated = preAllocated.AddRef();
 
-                Win32ThreadPoolNativeOverlapped.OverlappedData data = preAllocated._overlapped->Data;
+                Win32ThreadPoolNativeOverlapped.OverlappedData? data = preAllocated._overlapped->Data;
+                Debug.Assert(data != null);
                 if (data._boundHandle != null)
                     throw new ArgumentException(SR.Argument_PreAllocatedAlreadyAllocated, nameof(preAllocated));
 
@@ -155,8 +159,9 @@ namespace System.Threading
 
         private static unsafe Win32ThreadPoolNativeOverlapped.OverlappedData GetOverlappedData(Win32ThreadPoolNativeOverlapped* overlapped, ThreadPoolBoundHandle? expectedBoundHandle)
         {
-            Win32ThreadPoolNativeOverlapped.OverlappedData data = overlapped->Data;
+            Win32ThreadPoolNativeOverlapped.OverlappedData? data = overlapped->Data;
 
+            Debug.Assert(data != null);
             if (data._boundHandle == null)
                 throw new ArgumentException(SR.Argument_NativeOverlappedAlreadyFree, nameof(overlapped));
 
@@ -172,7 +177,10 @@ namespace System.Threading
             var wrapper = ThreadPoolCallbackWrapper.Enter();
             Win32ThreadPoolNativeOverlapped* overlapped = (Win32ThreadPoolNativeOverlapped*)overlappedPtr;
 
-            ThreadPoolBoundHandle boundHandle = overlapped->Data._boundHandle;
+            Debug.Assert(overlapped != null);
+            var x = overlapped->Data;
+            Debug.Assert(x != null);
+            ThreadPoolBoundHandle? boundHandle = x._boundHandle;
             if (boundHandle == null)
                 throw new InvalidOperationException(SR.Argument_NativeOverlappedAlreadyFree);
 

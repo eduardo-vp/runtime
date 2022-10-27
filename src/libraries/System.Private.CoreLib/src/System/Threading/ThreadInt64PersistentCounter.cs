@@ -25,7 +25,7 @@ namespace System.Threading
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Increment(object threadLocalCountObject)
+        public static void Increment(object? threadLocalCountObject)
         {
             Debug.Assert(threadLocalCountObject is ThreadLocalNode);
             Unsafe.As<ThreadLocalNode>(threadLocalCountObject).Increment();
