@@ -163,8 +163,9 @@ namespace System.Threading
         {
             // Reset all data.
             Debug.Assert(overlapped != null);
-            Debug.Assert(overlapped->Data != null);
-            overlapped->Data.Reset();
+            var x = overlapped->Data;
+            Debug.Assert(x != null);
+            x.Reset();
             overlapped->_overlapped = default(NativeOverlapped);
 
             // Add to the free list.
