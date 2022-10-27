@@ -12,22 +12,25 @@ namespace System.Threading
     /// </remarks>
     internal struct ThreadPoolCallbackWrapper
     {
+        private int x;
         private Thread _currentThread;
 
         public static ThreadPoolCallbackWrapper Enter()
         {
-            return new ThreadPoolCallbackWrapper
-            {
-                _currentThread = Thread.EnsureThreadPoolThreadInitialized(),
-            };
+            return default(ThreadPoolCallbackWrapper);
         }
 
         public void Exit(bool resetThread = true)
         {
             if (resetThread)
             {
-                _currentThread.ResetThreadPoolThread();
+                x += 1;
             }
+        }
+
+        public Thread dummy()
+        {
+            return _currentThread;
         }
     }
 }

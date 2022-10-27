@@ -25,10 +25,10 @@ namespace System.Threading
         private static unsafe void TimerCallback(void* instance, void* context, void* timer)
         {
             int id = (int)context;
-            var wrapper = ThreadPoolCallbackWrapper.Enter();
+            // var wrapper = ThreadPoolCallbackWrapper.Enter();
             Instances[id].FireNextTimers();
             ThreadPool.IncrementCompletedWorkItemCount();
-            wrapper.Exit();
+            // wrapper.Exit();
         }
 
         private unsafe bool SetTimer(uint actualDuration)
