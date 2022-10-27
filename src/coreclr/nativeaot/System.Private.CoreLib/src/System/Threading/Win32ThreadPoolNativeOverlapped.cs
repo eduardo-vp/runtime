@@ -101,7 +101,7 @@ namespace System.Threading
 
                 // If we haven't stored this object in the array yet, do so now.  Then we need to make another pass through
                 // the loop, in case another thread resized the array before we made this update.
-                if (s_dataArray[dataIndex] == null)
+                if (s_dataArray != null && s_dataArray[dataIndex] == null)
                 {
                     // Full fence so this write can't move past subsequent reads.
                     Interlocked.Exchange(ref dataArray![dataIndex], data);
@@ -119,8 +119,9 @@ namespace System.Threading
         {
             Debug.Assert(callback != null);
 
-            OverlappedData data = Data;
+            OverlappedData? data = Data;
 
+            Assert(data != null);
             data._callback = callback;
             data._state = state;
             data._executionContext = flowExecutionContext ? ExecutionContext.Capture() : null;
@@ -161,6 +162,7 @@ namespace System.Threading
         internal static unsafe void Free(Win32ThreadPoolNativeOverlapped* overlapped)
         {
             // Reset all data.
+            Debug.Assert(overlapped != null);
             overlapped->Data.Reset();
             overlapped->_overlapped = default(NativeOverlapped);
 
@@ -187,8 +189,9 @@ namespace System.Threading
 
         internal static unsafe void CompleteWithCallback(uint errorCode, uint bytesWritten, Win32ThreadPoolNativeOverlapped* overlapped)
         {
-            OverlappedData data = overlapped->Data;
+            OverlappedData? data = overlapped->Data;
 
+            Debug.Assert(data != null);
             Debug.Assert(!data._completed);
             data._completed = true;
 
@@ -199,12 +202,12 @@ namespace System.Threading
                 return;
             }
 
-            ContextCallback callback = s_executionContextCallback;
+            ContextCallback? callback = s_executionContextCallback;
             if (callback == null)
                 s_executionContextCallback = callback = OnExecutionContextCallback;
 
             // Get an args object from the per-thread cache.
-            ExecutionContextCallbackArgs args = t_executionContextCallbackArgs;
+            ExecutionContextCallbackArgs? args = t_executionContextCallbackArgs;
             args ??= new ExecutionContextCallbackArgs();
 
             t_executionContextCallbackArgs = null;
@@ -225,16 +228,21 @@ namespace System.Threading
             uint errorCode = args._errorCode;
             uint bytesWritten = args._bytesWritten;
             Win32ThreadPoolNativeOverlapped* overlapped = args._overlapped;
-            OverlappedData data = args._data;
+            OverlappedData? data = args._data;
 
             // Put the args object back in the per-thread cache, now that we're done with it.
             args._data = null;
             t_executionContextCallbackArgs = args;
 
+            Debug.Assert(data != null);
             Debug.Assert(data._callback != null, "Does OnExecutionContextCallback called after Reset?");
             data._callback(errorCode, bytesWritten, ToNativeOverlapped(overlapped));
         }
 
-        internal bool IsUserObject(byte[]? buffer) => ReferenceEquals(Data._pinnedData, buffer);
+        internal bool IsUserObject(byte[]? buffer)
+        {
+            Debug.Assert(Data != null);
+            return ReferenceEquals(Data._pinnedData, buffer);
+        }
     }
 }
