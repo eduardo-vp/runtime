@@ -994,14 +994,16 @@ namespace System.Threading
             bool reportedStatus = false;
             try
             {
-                ThreadPool.ReportThreadStatus(isWorking: true);
+                // ThreadPool.ReportThreadStatus(isWorking: true);
                 reportedStatus = true;
                 DispatchWorkItem(workItem, currentThread);
             }
             finally
             {
                 if (reportedStatus)
-                    ThreadPool.ReportThreadStatus(isWorking: false);
+                {
+                    // ThreadPool.ReportThreadStatus(isWorking: false);
+                }
             }
         }
 
@@ -1358,10 +1360,6 @@ namespace System.Threading
         internal const string WorkerThreadName = ".NET TP Worker";
 
         internal static readonly ThreadPoolWorkQueue s_workQueue = new ThreadPoolWorkQueue();
-
-        internal static void ReportThreadStatus(bool isWorking)
-        {
-        }
 
         /// <summary>Shim used to invoke <see cref="IAsyncStateMachineBox.MoveNext"/> of the supplied <see cref="IAsyncStateMachineBox"/>.</summary>
         internal static readonly Action<object?> s_invokeAsyncStateMachineBox = static state =>
