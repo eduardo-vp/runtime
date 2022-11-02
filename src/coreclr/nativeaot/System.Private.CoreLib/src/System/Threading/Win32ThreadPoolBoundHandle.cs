@@ -72,9 +72,9 @@ namespace System.Threading
             {
                 Win32ThreadPoolNativeOverlapped* overlapped = Win32ThreadPoolNativeOverlapped.Allocate(callback, state, pinData, preAllocated: null, flowExecutionContext);
                 Debug.Assert(overlapped != null);
-                var x = overlapped->Data;
-                Debug.Assert(x != null);
-                x._boundHandle = this;
+                var data = overlapped->Data;
+                Debug.Assert(data != null);
+                data._boundHandle = this;
 
                 Interop.Kernel32.StartThreadpoolIo(_threadPoolHandle);
 
@@ -174,13 +174,13 @@ namespace System.Threading
         [UnmanagedCallersOnly]
         private static unsafe void OnNativeIOCompleted(IntPtr instance, IntPtr context, IntPtr overlappedPtr, uint ioResult, nuint numberOfBytesTransferred, IntPtr ioPtr)
         {
-            // var wrapper = ThreadPoolCallbackWrapper.Enter();
+            var wrapper = ThreadPoolCallbackWrapper.Enter();
             Win32ThreadPoolNativeOverlapped* overlapped = (Win32ThreadPoolNativeOverlapped*)overlappedPtr;
 
             Debug.Assert(overlapped != null);
-            var x = overlapped->Data;
-            Debug.Assert(x != null);
-            ThreadPoolBoundHandle? boundHandle = x._boundHandle;
+            var data = overlapped->Data;
+            Debug.Assert(data != null);
+            ThreadPoolBoundHandle? boundHandle = data._boundHandle;
             if (boundHandle == null)
                 throw new InvalidOperationException(SR.Argument_NativeOverlappedAlreadyFree);
 
@@ -188,7 +188,7 @@ namespace System.Threading
 
             Win32ThreadPoolNativeOverlapped.CompleteWithCallback(ioResult, (uint)numberOfBytesTransferred, overlapped);
             ThreadPool.IncrementCompletedWorkItemCount();
-            // wrapper.Exit();
+            wrapper.Exit();
         }
 
         private bool AddRef()

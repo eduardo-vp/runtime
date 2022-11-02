@@ -101,7 +101,8 @@ namespace System.Threading
 
                 // If we haven't stored this object in the array yet, do so now.  Then we need to make another pass through
                 // the loop, in case another thread resized the array before we made this update.
-                if (s_dataArray != null && s_dataArray[dataIndex] == null)
+                Debug.Assert(s_dataArray != null);
+                if (s_dataArray[dataIndex] == null)
                 {
                     // Full fence so this write can't move past subsequent reads.
                     Interlocked.Exchange(ref dataArray![dataIndex], data);
@@ -163,9 +164,9 @@ namespace System.Threading
         {
             // Reset all data.
             Debug.Assert(overlapped != null);
-            var x = overlapped->Data;
-            Debug.Assert(x != null);
-            x.Reset();
+            var data = overlapped->Data;
+            Debug.Assert(data != null);
+            data.Reset();
             overlapped->_overlapped = default(NativeOverlapped);
 
             // Add to the free list.

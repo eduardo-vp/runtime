@@ -59,7 +59,7 @@ namespace System.Threading
         [UnmanagedCallersOnly]
         internal static void RegisteredWaitCallback(IntPtr instance, IntPtr context, IntPtr wait, uint waitResult)
         {
-            // var wrapper = ThreadPoolCallbackWrapper.Enter();
+            var wrapper = ThreadPoolCallbackWrapper.Enter();
             GCHandle handle = (GCHandle)context;
             RegisteredWaitHandle registeredWaitHandle = (RegisteredWaitHandle)handle.Target!;
             Debug.Assert((handle == registeredWaitHandle._gcHandle) && (wait == registeredWaitHandle._tpWait));
@@ -67,7 +67,7 @@ namespace System.Threading
             bool timedOut = (waitResult == (uint)Interop.Kernel32.WAIT_TIMEOUT);
             registeredWaitHandle.PerformCallback(timedOut);
             ThreadPool.IncrementCompletedWorkItemCount();
-            // wrapper.Exit();
+            wrapper.Exit();
         }
 
         private void PerformCallback(bool timedOut)
@@ -192,9 +192,9 @@ namespace System.Threading
             // If this object gets resurrected and another thread calls Unregister, that creates a race condition.
             // Do not block the finalizer thread. If another thread is running Unregister, it will clean up for us.
             // The _lock may be null in case of OOM in the constructor.
-            if (_lock != null)
+            if (_lock != null && Monitor.TryEnter(_lock))
             {
-                lock(_lock)
+                try
                 {
                     if (!_unregistering)
                     {
@@ -213,6 +213,10 @@ namespace System.Threading
                             _waitHandle = null;
                         }
                     }
+                }
+                finally
+                {
+                    Monitor.Exit(_lock);
                 }
             }
         }
@@ -354,13 +358,13 @@ namespace System.Threading
         [UnmanagedCallersOnly]
         private static void DispatchCallback(IntPtr instance, IntPtr context, IntPtr work)
         {
-            // var wrapper = ThreadPoolCallbackWrapper.Enter();
+            var wrapper = ThreadPoolCallbackWrapper.Enter();
             Debug.Assert(s_work == work);
             Interlocked.Increment(ref s_workingThreadCounter.Count);
             ThreadPoolWorkQueue.Dispatch();
             Interlocked.Decrement(ref s_workingThreadCounter.Count);
             // We reset the thread after executing each callback
-            // wrapper.Exit(resetThread: false);
+            wrapper.Exit(resetThread: false);
         }
 
         internal static unsafe void RequestWorkerThread()
