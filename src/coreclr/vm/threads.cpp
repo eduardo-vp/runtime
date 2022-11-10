@@ -4197,6 +4197,35 @@ void Thread::UserSleep(INT32 time)
     ResetThreadState(TS_Interrupted);
 
     DWORD dwTime = (DWORD)time;
+
+    if (dwTime == 123456)
+    {
+        // get frequency
+        LARGE_INTEGER *lpFrequency = NULL;
+        QueryPerformanceFrequency(lpFrequency);
+
+        LARGE_INTEGER start_ticks, current_ticks;
+        QueryPerformanceCounter(&start_ticks);
+        for (int suspendDurationMs = 1; suspendDurationMs <= 256; suspendDurationMs *= 2)
+        {
+            printf("Suspend duration in ms: %d", suspendDurationMs);
+            printf("Thread count: %d", ThreadStore::s_pThreadStore->ThreadCountInEE());
+            ThreadSuspend::SuspendEE(ThreadSuspend::SUSPEND_OTHER);
+            while (true)
+            {
+                QueryPerformanceCounter(&current_ticks);
+                if ((1000 * (current_ticks.QuadPart - start_ticks.QuadPart) / lpFrequency->QuadPart) >= dwTime)
+                {
+                    break;
+                }
+            }
+            ThreadSuspend::RestartEE(false, true);
+            printf("Thread count: %d", ThreadStore::s_pThreadStore->ThreadCountInEE());
+        }
+
+        dwTime = 0;
+    }
+
 retry:
 
     ULONGLONG start = CLRGetTickCount64();
