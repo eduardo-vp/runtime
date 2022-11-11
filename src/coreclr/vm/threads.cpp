@@ -4205,22 +4205,25 @@ void Thread::UserSleep(INT32 time)
         QueryPerformanceFrequency(lpFrequency);
 
         LARGE_INTEGER start_ticks, current_ticks;
-        QueryPerformanceCounter(&start_ticks);
         for (int suspendDurationMs = 1; suspendDurationMs <= 256; suspendDurationMs *= 2)
         {
-            printf("Suspend duration in ms: %d", suspendDurationMs);
-            printf("Thread count: %d", ThreadStore::s_pThreadStore->ThreadCountInEE());
+            printf("Suspend duration in ms: %d\n", suspendDurationMs);
+            fflush(stdout);
+            printf("Thread count: %d\n", ThreadStore::s_pThreadStore->ThreadCountInEE());
+            fflush(stdout);
             ThreadSuspend::SuspendEE(ThreadSuspend::SUSPEND_OTHER);
+            QueryPerformanceCounter(&start_ticks);
             while (true)
             {
                 QueryPerformanceCounter(&current_ticks);
-                if ((1000 * (current_ticks.QuadPart - start_ticks.QuadPart) / lpFrequency->QuadPart) >= dwTime)
+                if ((1000 * (current_ticks.QuadPart - start_ticks.QuadPart) / lpFrequency->QuadPart) >= suspendDurationMs)
                 {
                     break;
                 }
             }
             ThreadSuspend::RestartEE(false, true);
-            printf("Thread count: %d", ThreadStore::s_pThreadStore->ThreadCountInEE());
+            printf("Thread count: %d\n", ThreadStore::s_pThreadStore->ThreadCountInEE());
+            fflush(stdout);
         }
 
         dwTime = 0;
