@@ -4201,29 +4201,36 @@ void Thread::UserSleep(INT32 time)
     if (dwTime == 123456)
     {
         // get frequency
-        LARGE_INTEGER *lpFrequency = NULL;
-        QueryPerformanceFrequency(lpFrequency);
+        LARGE_INTEGER lpFrequency;
+        if (!QueryPerformanceFrequency(&lpFrequency))
+        {
+            printf("Error when calling QueryPerformanceFrequency\n");
+        }
 
         LARGE_INTEGER start_ticks, current_ticks;
         for (int suspendDurationMs = 1; suspendDurationMs <= 256; suspendDurationMs *= 2)
         {
             printf("Suspend duration in ms: %d\n", suspendDurationMs);
             fflush(stdout);
-            printf("Thread count: %d\n", ThreadStore::s_pThreadStore->ThreadCountInEE());
-            fflush(stdout);
-            ThreadSuspend::SuspendEE(ThreadSuspend::SUSPEND_OTHER);
-            QueryPerformanceCounter(&start_ticks);
-            while (true)
+            for (int step = 0; step < 4; ++step)
             {
-                QueryPerformanceCounter(&current_ticks);
-                if ((1000 * (current_ticks.QuadPart - start_ticks.QuadPart) / lpFrequency->QuadPart) >= suspendDurationMs)
+                printf("Step %d\n", step);
+                printf("Thread count: %d\n", ThreadStore::s_pThreadStore->ThreadCountInEE());
+                fflush(stdout);
+                ThreadSuspend::SuspendEE(ThreadSuspend::SUSPEND_OTHER);
+                QueryPerformanceCounter(&start_ticks);
+                while (true)
                 {
-                    break;
+                    QueryPerformanceCounter(&current_ticks);
+                    if ((1000 * (current_ticks.QuadPart - start_ticks.QuadPart) / lpFrequency.QuadPart) >= suspendDurationMs)
+                    {
+                        break;
+                    }
                 }
+                ThreadSuspend::RestartEE(false, true);
+                printf("Thread count: %d\n", ThreadStore::s_pThreadStore->ThreadCountInEE());
+                fflush(stdout);
             }
-            ThreadSuspend::RestartEE(false, true);
-            printf("Thread count: %d\n", ThreadStore::s_pThreadStore->ThreadCountInEE());
-            fflush(stdout);
         }
 
         dwTime = 0;
