@@ -196,6 +196,25 @@ namespace System.Threading
             internal set;
         }
 
+        private static Thread InitializeExistingThreadPoolThread()
+        {
+            ThreadPool.InitializeForThreadPoolThread();
+
+            Thread thread = CurrentThread;
+            thread.IsThreadPoolThread = true;
+            return thread;
+        }
+
+        // Use ThreadPoolCallbackWrapper instead of calling this function directly
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static Thread EnsureThreadPoolThreadInitialized()
+        {
+            Thread? thread = t_currentThread;
+            if (thread != null && thread.IsThreadPoolThread)
+                return thread;
+            return InitializeExistingThreadPoolThread();
+        }
+
         /// <summary>Returns the priority of the thread.</summary>
         public ThreadPriority Priority
         {

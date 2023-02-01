@@ -22,7 +22,7 @@ namespace System.Threading
             // OS doesn't signal handle, so do it here
             overlapped->InternalLow = IntPtr.Zero;
 
-            PortableThreadPool.ThreadPoolInstance.QueueNativeOverlapped(overlapped);
+            IOCompletionPollers.Instance.QueueNativeOverlapped(overlapped);
             return true;
         }
 
@@ -30,7 +30,7 @@ namespace System.Threading
         [SupportedOSPlatform("windows")]
         public static bool BindHandle(IntPtr osHandle)
         {
-            PortableThreadPool.ThreadPoolInstance.RegisterForIOCompletionNotifications(osHandle);
+            IOCompletionPollers.Instance.RegisterForIOCompletionNotifications(osHandle);
             return true;
         }
 
@@ -43,7 +43,7 @@ namespace System.Threading
             try
             {
                 osHandle.DangerousAddRef(ref mustReleaseSafeHandle);
-                PortableThreadPool.ThreadPoolInstance.RegisterForIOCompletionNotifications(osHandle.DangerousGetHandle());
+                IOCompletionPollers.Instance.RegisterForIOCompletionNotifications(osHandle.DangerousGetHandle());
                 return true;
             }
             finally
