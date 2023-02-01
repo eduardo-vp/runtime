@@ -16,10 +16,11 @@ namespace System.Threading
 #if !FEATURE_WASM_THREADS
     [System.Runtime.Versioning.UnsupportedOSPlatformAttribute("browser")]
 #endif
-    public sealed class RegisteredWaitHandle : MarshalByRefObject
+    public sealed partial class RegisteredWaitHandle : MarshalByRefObject
     {
-        private readonly Lock _lock;
-        private SafeWaitHandle _waitHandle;
+        internal bool Repeating { get; }
+        private readonly object _lock;
+        private SafeWaitHandle? _waitHandle;
         private readonly _ThreadPoolWaitOrTimerCallback _callbackHelper;
         private readonly uint _millisecondsTimeout;
         private bool _repeating;
@@ -34,7 +35,7 @@ namespace System.Threading
         internal unsafe RegisteredWaitHandle(SafeWaitHandle waitHandle, _ThreadPoolWaitOrTimerCallback callbackHelper,
             uint millisecondsTimeout, bool repeating)
         {
-            _lock = new Lock();
+            _lock = new object();
 
             // Protect the handle from closing while we are waiting on it (VSWhidbey 285642)
             waitHandle.DangerousAddRef();
@@ -72,39 +73,26 @@ namespace System.Threading
 
         private void PerformCallback(bool timedOut)
         {
-            bool lockAcquired;
-            var spinner = new SpinWait();
 
             // Prevent the race condition with Unregister and the previous PerformCallback call, which may still be
             // holding the _lock.
-            while (!(lockAcquired = _lock.TryAcquire(0)) && !Volatile.Read(ref _unregistering))
-            {
-                spinner.SpinOnce();
-            }
 
             // If another thread is running Unregister, no need to restart the timer or clean up
-            if (lockAcquired)
+            lock(_lock)
             {
-                try
+                if (!_unregistering)
                 {
-                    if (!_unregistering)
+                    if (_repeating)
                     {
-                        if (_repeating)
-                        {
-                            // Allow this wait to fire again. Restart the timer before executing the callback.
-                            RestartWait();
-                        }
-                        else
-                        {
-                            // This wait will not be fired again. Free the GC handle to allow the GC to collect this object.
-                            Debug.Assert(_gcHandle.IsAllocated);
-                            _gcHandle.Free();
-                        }
+                        // Allow this wait to fire again. Restart the timer before executing the callback.
+                        RestartWait();
                     }
-                }
-                finally
-                {
-                    _lock.Release();
+                    else 
+                    {
+                        // This wait will not be fired again. Free the GC handle to allow the GC to collect this object.
+                        Debug.Assert(_gcHandle.IsAllocated);
+                        _gcHandle.Free();
+                    }
                 }
             }
 
@@ -123,13 +111,14 @@ namespace System.Threading
             }
 
             // We can use DangerousGetHandle because of DangerousAddRef in the constructor
+            Debug.Assert(_waitHandle != null);
             Interop.Kernel32.SetThreadpoolWait(_tpWait, _waitHandle.DangerousGetHandle(), (IntPtr)pTimeout);
         }
 
         public bool Unregister(WaitHandle waitObject)
         {
             // Hold the lock during the synchronous part of Unregister (as in CoreCLR)
-            using (LockHolder.Hold(_lock))
+            lock(_lock)
             {
                 if (!_unregistering)
                 {
@@ -203,7 +192,7 @@ namespace System.Threading
             // If this object gets resurrected and another thread calls Unregister, that creates a race condition.
             // Do not block the finalizer thread. If another thread is running Unregister, it will clean up for us.
             // The _lock may be null in case of OOM in the constructor.
-            if ((_lock != null) && _lock.TryAcquire(0))
+            if (_lock != null && Monitor.TryEnter(_lock))
             {
                 try
                 {
@@ -227,7 +216,7 @@ namespace System.Threading
                 }
                 finally
                 {
-                    _lock.Release();
+                    Monitor.Exit(_lock);
                 }
             }
         }
@@ -256,14 +245,14 @@ namespace System.Threading
 
         private static IntPtr s_work;
 
-        private class ThreadCountHolder
+        private sealed class ThreadCountHolder
         {
             internal ThreadCountHolder() => Interlocked.Increment(ref s_threadCount);
             ~ThreadCountHolder() => Interlocked.Decrement(ref s_threadCount);
         }
 
         [ThreadStatic]
-        private static ThreadCountHolder t_threadCountHolder;
+        private static ThreadCountHolder? t_threadCountHolder;
         private static int s_threadCount;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -396,7 +385,7 @@ namespace System.Threading
         private static RegisteredWaitHandle RegisterWaitForSingleObject(
              WaitHandle waitObject,
              WaitOrTimerCallback callBack,
-             object state,
+             object? state,
              uint millisecondsTimeOutInterval,
              bool executeOnlyOnce,
              bool flowExecutionContext)
@@ -433,7 +422,8 @@ namespace System.Threading
         [SupportedOSPlatform("windows")]
         public static bool BindHandle(IntPtr osHandle)
         {
-            throw new PlatformNotSupportedException(SR.Arg_PlatformNotSupported); // Replaced by ThreadPoolBoundHandle.BindHandle
+            IOCompletionPollers.Instance.RegisterForIOCompletionNotifications(osHandle);
+            return true;
         }
 
         [SupportedOSPlatform("windows")]
