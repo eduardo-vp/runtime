@@ -403,6 +403,13 @@
   <!-- Reflection.Core -->
   <ItemGroup>
     <Compile Include="System\ActivatorImplementation.cs" />
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\IOCompletionPollers.cs" />
+    <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.CompletionPort.cs">
+      <Link>Common\Interop\Windows\Kernel32\Interop.CompletionPort.cs</Link>
+    </Compile>
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.cs" />
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.Auxiliar.cs" />
+    <Compile Include="..\..\..\System.Private.CoreLib\src\System\Diagnostics\Eventing\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.CoreCLR.cs" />
     <Compile Include="System\Reflection\Runtime\Assemblies\NativeFormat\NativeFormatRuntimeAssembly.cs" />
     <Compile Include="System\Reflection\Runtime\Assemblies\NativeFormat\NativeFormatRuntimeAssembly.GetTypeCore.CaseInsensitive.cs" />
     <Compile Include="System\Reflection\Runtime\Assemblies\NativeFormat\NativeFormatRuntimeAssembly.GetTypeCore.CaseSensitive.cs" />

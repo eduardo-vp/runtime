@@ -10,22 +10,18 @@ namespace System.Threading
     /// <remarks>
     /// This structure does not implement <c>IDisposable</c> to save on exception support, which callers do not need.
     /// </remarks>
-    internal struct ThreadPoolCallbackWrapper
+    internal readonly struct ThreadPoolCallbackWrapper
     {
-        private Thread _currentThread;
+        private readonly Thread _currentThread;
 
-        public static ThreadPoolCallbackWrapper Enter()
-        {
-            return new ThreadPoolCallbackWrapper
-            {
-                _currentThread = Thread.EnsureThreadPoolThreadInitialized(),
-            };
-        }
+        private ThreadPoolCallbackWrapper(bool _) => _currentThread = Thread.EnsureThreadPoolThreadInitialized();
+        public static ThreadPoolCallbackWrapper Enter() => new ThreadPoolCallbackWrapper(false);
 
         public void Exit(bool resetThread = true)
         {
             if (resetThread)
             {
+                ExecutionContext.ResetThreadPoolThread(_currentThread);
                 _currentThread.ResetThreadPoolThread();
             }
         }

@@ -19,8 +19,11 @@
     <ILLinkDescriptorsXml>$(IntermediateOutputPath)ILLink.Descriptors.xml</ILLinkDescriptorsXml>
     <ILLinkDirectory>$(MSBuildThisFileDirectory)src\ILLink\</ILLinkDirectory>
 
-    <FeaturePortableThreadPool>true</FeaturePortableThreadPool>
-    <FeaturePortableTimer>true</FeaturePortableTimer>
+    <FeaturePortableThreadPool Condition="'$(FeaturePortableThreadPool)' == ''">false</FeaturePortableThreadPool>
+    <FeaturePortableThreadPool Condition="'$(TargetsUnix)' == 'true'">true</FeaturePortableThreadPool>
+
+    <FeaturePortableTimer Condition="'$(FeaturePortableTimer)' == ''">false</FeaturePortableTimer>
+    <FeaturePortableTimer Condition="'$(TargetsUnix)' == 'true'">true</FeaturePortableTimer>
   </PropertyGroup>
 
   <ItemGroup>
@@ -112,6 +115,7 @@
   <PropertyGroup>
     <CommonPath>$([MSBuild]::NormalizeDirectory('$(LibrariesProjectRoot)', 'Common', 'src'))</CommonPath>
     <BclSourcesRoot>$(MSBuildThisFileDirectory)src</BclSourcesRoot>
+    <NativeAotBclSourcesRoot>$(MSBuildThisFileDirectory)..\nativeaot\System.Private.CoreLib\src</NativeAotBclSourcesRoot>
   </PropertyGroup>
 
   <!-- Compilation options -->
@@ -238,7 +242,6 @@
     <Compile Include="$(BclSourcesRoot)\System\Threading\SynchronizationContext.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Threading\Thread.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Threading\ProcessorIdCache.cs" />
-    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Threading\WaitHandle.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Type.CoreCLR.cs" />
     <Compile Include="$(BclSourcesRoot)\System\TypedReference.CoreCLR.cs" />
@@ -291,7 +294,40 @@
     <Compile Include="$(CommonPath)Interop\Windows\OleAut32\Interop.VariantClear.cs">
       <Link>Common\Interop\Windows\OleAut32\Interop.VariantClear.cs</Link>
     </Compile>
-    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" Condition="'$(FeaturePortableThreadPool)' == 'true'"/>
+    <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.ThreadPoolIO.cs">
+      <Link>Interop\Windows\Kernel32\Interop.ThreadPoolIO.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.Timer.cs">
+      <Link>Interop\Windows\Kernel32\Interop.Timer.cs</Link>
+    </Compile>
+    <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.ThreadPool.cs">
+      <Link>Interop\Windows\Kernel32\Interop.ThreadPool.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FeaturePortableThreadPool)' == 'true'">
+    <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FeaturePortableThreadPool)' != 'true'">
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolBoundHandle.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
+    <Compile Include="$(NativeAotBclSourcesRoot)\Microsoft\Win32\SafeHandles\SafeThreadPoolIOHandle.cs" />
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\IOCompletionPollers.cs" />
+    <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.CompletionPort.cs">
+      <Link>Common\Interop\Windows\Kernel32\Interop.CompletionPort.cs</Link>
+    </Compile>
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.cs" />
+    <Compile Include="$(BclSourcesRoot)\System\Diagnostics\Eventing\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.CoreCLR.cs" />
+    <!-- <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Lock.cs" /> -->
+    <!-- <Compile Include="$(NativeAotBclSourcesRoot)\System\Runtime\CompilerServices\ReflectionBlockedAttribute.cs" /> -->
   </ItemGroup>
   <ItemGroup Condition="'$(FeatureObjCMarshal)' == 'true'">
     <Compile Include="$(BclSourcesRoot)\System\Runtime\InteropServices\ObjectiveCMarshal.CoreCLR.cs" />
