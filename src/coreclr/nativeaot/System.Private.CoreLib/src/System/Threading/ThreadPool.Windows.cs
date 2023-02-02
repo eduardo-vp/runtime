@@ -87,7 +87,7 @@ namespace System.Threading
                         // Allow this wait to fire again. Restart the timer before executing the callback.
                         RestartWait();
                     }
-                    else 
+                    else
                     {
                         // This wait will not be fired again. Free the GC handle to allow the GC to collect this object.
                         Debug.Assert(_gcHandle.IsAllocated);
@@ -348,6 +348,7 @@ namespace System.Threading
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool NotifyWorkItemComplete(object? threadLocalCompletionCountObject, int _ /*currentTimeMs*/)
         {
+            Debug.Assert(threadLocalCompletionCountObject != null);
             ThreadInt64PersistentCounter.Increment(threadLocalCompletionCountObject);
             return true;
         }
