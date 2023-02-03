@@ -15,19 +15,48 @@ namespace System.Threading
     //
     public sealed class ThreadPoolBoundHandle : IDisposable, IDeferredDisposable
     {
+        private bool _isDisposed;
         private readonly SafeHandle _handle;
-        private readonly SafeThreadPoolIOHandle _threadPoolHandle;
         private DeferredDisposableLifetime<ThreadPoolBoundHandle> _lifetime;
 
-        private ThreadPoolBoundHandle(SafeHandle handle, SafeThreadPoolIOHandle threadPoolHandle)
+        private ThreadPoolBoundHandle(SafeHandle handle)
         {
-            _threadPoolHandle = threadPoolHandle;
             _handle = handle;
         }
 
         public SafeHandle Handle
         {
             get { return _handle; }
+        }
+
+        private static ThreadPoolBoundHandle BindHandleCore(SafeHandle handle)
+        {
+            Debug.Assert(handle != null);
+            Debug.Assert(!handle.IsClosed);
+            Debug.Assert(!handle.IsInvalid);
+
+            try
+            {
+                Debug.Assert(OperatingSystem.IsWindows());
+                // ThreadPool.BindHandle will always return true, otherwise, it throws.
+                bool succeeded = ThreadPool.BindHandle(handle);
+                Debug.Assert(succeeded);
+            }
+            catch (Exception ex)
+            {   // BindHandle throws ApplicationException on full CLR and Exception on CoreCLR.
+                // We do not let either of these leak and convert them to ArgumentException to
+                // indicate that the specified handles are invalid.
+
+                if (ex.HResult == HResults.E_HANDLE)         // Bad handle
+                    throw new ArgumentException(SR.Argument_InvalidHandle, nameof(handle));
+
+                if (ex.HResult == HResults.E_INVALIDARG)     // Handle already bound or sync handle
+                    throw new ArgumentException(SR.Argument_AlreadyBoundOrSyncHandle, nameof(handle));
+
+                throw;
+            }
+
+            return new ThreadPoolBoundHandle(handle);
         }
 
         public static unsafe ThreadPoolBoundHandle BindHandle(SafeHandle handle)
@@ -37,20 +66,7 @@ namespace System.Threading
             if (handle.IsClosed || handle.IsInvalid)
                 throw new ArgumentException(SR.Argument_InvalidHandle, nameof(handle));
 
-            SafeThreadPoolIOHandle threadPoolHandle = Interop.Kernel32.CreateThreadpoolIo(handle, &OnNativeIOCompleted, IntPtr.Zero, IntPtr.Zero);
-            if (threadPoolHandle.IsInvalid)
-            {
-                int errorCode = Marshal.GetLastWin32Error();
-                if (errorCode == Interop.Errors.ERROR_INVALID_HANDLE)         // Bad handle
-                    throw new ArgumentException(SR.Argument_InvalidHandle, nameof(handle));
-
-                if (errorCode == Interop.Errors.ERROR_INVALID_PARAMETER)     // Handle already bound or sync handle
-                    throw new ArgumentException(SR.Argument_AlreadyBoundOrSyncHandle, nameof(handle));
-
-                throw Win32Marshal.GetExceptionForWin32Error(errorCode);
-            }
-
-            return new ThreadPoolBoundHandle(handle, threadPoolHandle);
+            return BindHandleCore(handle);
         }
 
         [CLSCompliant(false)]
@@ -64,58 +80,51 @@ namespace System.Threading
         private unsafe NativeOverlapped* AllocateNativeOverlapped(IOCompletionCallback callback, object? state, object? pinData, bool flowExecutionContext)
         {
             ArgumentNullException.ThrowIfNull(callback);
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-            AddRef();
-            try
-            {
-                Win32ThreadPoolNativeOverlapped* overlapped = Win32ThreadPoolNativeOverlapped.Allocate(callback, state, pinData, preAllocated: null, flowExecutionContext);
-                Debug.Assert(overlapped != null);
-                var data = overlapped->Data;
-                Debug.Assert(data != null);
-                data._boundHandle = this;
-
-                Interop.Kernel32.StartThreadpoolIo(_threadPoolHandle);
-
-                return Win32ThreadPoolNativeOverlapped.ToNativeOverlapped(overlapped);
-            }
-            catch
-            {
-                Release();
-                throw;
-            }
+            ThreadPoolBoundHandleOverlapped overlapped = new ThreadPoolBoundHandleOverlapped(callback, state, pinData, preAllocated: null, flowExecutionContext);
+            overlapped._boundHandle = this;
+            return overlapped._nativeOverlapped;
         }
 
         [CLSCompliant(false)]
         public unsafe NativeOverlapped* AllocateNativeOverlapped(PreAllocatedOverlapped preAllocated)
         {
             ArgumentNullException.ThrowIfNull(preAllocated);
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-            bool addedRefToThis = false;
-            bool addedRefToPreAllocated = false;
+            preAllocated.AddRef();
             try
             {
-                addedRefToThis = AddRef();
-                addedRefToPreAllocated = preAllocated.AddRef();
+                ThreadPoolBoundHandleOverlapped overlapped = preAllocated._overlapped;
 
-                Win32ThreadPoolNativeOverlapped.OverlappedData? data = preAllocated._overlapped->Data;
-                Debug.Assert(data != null);
-                if (data._boundHandle != null)
+                if (overlapped._boundHandle != null)
                     throw new ArgumentException(SR.Argument_PreAllocatedAlreadyAllocated, nameof(preAllocated));
 
-                data._boundHandle = this;
+                overlapped._boundHandle = this;
 
-                Interop.Kernel32.StartThreadpoolIo(_threadPoolHandle);
-
-                return Win32ThreadPoolNativeOverlapped.ToNativeOverlapped(preAllocated._overlapped);
+                return overlapped._nativeOverlapped;
             }
             catch
             {
-                if (addedRefToPreAllocated)
-                    preAllocated.Release();
-                if (addedRefToThis)
-                    Release();
+                preAllocated.Release();
                 throw;
             }
+        }
+
+        private static unsafe ThreadPoolBoundHandleOverlapped GetOverlappedWrapper(NativeOverlapped* overlapped)
+        {
+            ThreadPoolBoundHandleOverlapped wrapper;
+            try
+            {
+                wrapper = (ThreadPoolBoundHandleOverlapped)Overlapped.Unpack(overlapped);
+            }
+            catch (NullReferenceException ex)
+            {
+                throw new ArgumentException(SR.Argument_NativeOverlappedAlreadyFree, nameof(overlapped), ex);
+            }
+
+            return wrapper;
         }
 
         [CLSCompliant(false)]
@@ -123,22 +132,17 @@ namespace System.Threading
         {
             ArgumentNullException.ThrowIfNull(overlapped);
 
-            Win32ThreadPoolNativeOverlapped* threadPoolOverlapped = Win32ThreadPoolNativeOverlapped.FromNativeOverlapped(overlapped);
-            Win32ThreadPoolNativeOverlapped.OverlappedData data = GetOverlappedData(threadPoolOverlapped, this);
+            // Note: we explicitly allow FreeNativeOverlapped calls after the ThreadPoolBoundHandle has been Disposed.
 
-            if (!data._completed)
-            {
-                Interop.Kernel32.CancelThreadpoolIo(_threadPoolHandle);
-                Release();
-            }
+            ThreadPoolBoundHandleOverlapped wrapper = GetOverlappedWrapper(overlapped);
 
-            data._boundHandle = null;
-            data._completed = false;
+            if (wrapper._boundHandle != this)
+                throw new ArgumentException(SR.Argument_NativeOverlappedWrongBoundHandle, nameof(overlapped));
 
-            if (data._preAllocated != null)
-                data._preAllocated.Release();
+            if (wrapper._preAllocated != null)
+                wrapper._preAllocated.Release();
             else
-                Win32ThreadPoolNativeOverlapped.Free(threadPoolOverlapped);
+                Overlapped.Free(overlapped);
         }
 
         [CLSCompliant(false)]
@@ -198,6 +202,7 @@ namespace System.Threading
 
         public void Dispose()
         {
+            _isDisposed = true;
             _lifetime.Dispose(this);
             GC.SuppressFinalize(this);
         }
@@ -214,8 +219,8 @@ namespace System.Threading
 
         void IDeferredDisposable.OnFinalRelease(bool disposed)
         {
-            if (disposed)
-                _threadPoolHandle.Dispose();
+            // if (disposed)
+            //     _threadPoolHandle.Dispose();
         }
     }
 }
