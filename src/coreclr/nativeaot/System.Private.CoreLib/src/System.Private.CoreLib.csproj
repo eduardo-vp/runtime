@@ -302,7 +302,8 @@
     <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
     <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
     <Compile Include="System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
-    <Compile Include="System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" />
+    <!-- <Compile Include="System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" /> -->
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\PreAllocatedOverlapped.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetsUnix)'=='true'">
     <Compile Include="System\Environment.NativeAot.Unix.cs" />
@@ -388,6 +389,7 @@
   <ItemGroup>
     <Compile Include="System\ActivatorImplementation.cs" />
     <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\IOCompletionPollers.cs" />
+    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\ThreadPoolBoundHandleOverlapped.cs" />
     <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.CompletionPort.cs">
       <Link>Common\Interop\Windows\Kernel32\Interop.CompletionPort.cs</Link>
     </Compile>

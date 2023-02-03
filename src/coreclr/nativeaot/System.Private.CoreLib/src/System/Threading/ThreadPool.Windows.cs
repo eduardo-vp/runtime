@@ -430,7 +430,8 @@ namespace System.Threading
         [SupportedOSPlatform("windows")]
         public static bool BindHandle(SafeHandle osHandle)
         {
-            throw new PlatformNotSupportedException(SR.Arg_PlatformNotSupported); // Replaced by ThreadPoolBoundHandle.BindHandle
+            IOCompletionPollers.Instance.RegisterForIOCompletionNotifications(osHandle.DangerousGetHandle());
+            return true;
         }
     }
 }
