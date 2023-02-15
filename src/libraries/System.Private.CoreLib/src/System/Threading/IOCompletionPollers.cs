@@ -15,7 +15,9 @@ namespace System.Threading
         private readonly LowLevelLock _lock = new LowLevelLock();
 
         public static IOCompletionPollers Instance = new IOCompletionPollers();
-        private IOCompletionPollers() {}
+        private IOCompletionPollers() {
+            _ioPort = CreateIOCompletionPort();
+        }
 
         private const short MaxPossibleThreadCount = short.MaxValue;
         private const int SmallStackSizeBytes = 256 * 1024;
