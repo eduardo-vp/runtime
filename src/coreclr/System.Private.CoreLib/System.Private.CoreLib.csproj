@@ -292,9 +292,6 @@
       <Link>Common\Interop\Windows\OleAut32\Interop.VariantClear.cs</Link>
     </Compile>
     <Compile Include="$(BclSourcesRoot)\System\Threading\ThreadPool.CoreCLR.Windows.cs" Condition="'$(FeaturePortableThreadPool)' == 'true'"/>
-    <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.ThreadPoolIO.cs">
-      <Link>Interop\Windows\Kernel32\Interop.ThreadPoolIO.cs</Link>
-    </Compile>
     <Compile Include="$(CommonPath)\Interop\Windows\Kernel32\Interop.Timer.cs">
       <Link>Interop\Windows\Kernel32\Interop.Timer.cs</Link>
     </Compile>
@@ -311,22 +308,17 @@
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Timer.Windows.cs" Condition="'$(FeaturePortableTimer)' != 'true'" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPool.Windows.cs" />
     <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\ThreadPoolCallbackWrapper.cs" />
-    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolBoundHandle.cs" />
-    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.cs" />
-    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.ExecutionContextCallbackArgs.cs" />
-    <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolNativeOverlapped.OverlappedData.cs" />
-    <!-- <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Win32ThreadPoolPreAllocatedOverlapped.cs" /> -->
-    <Compile Include="$(NativeAotBclSourcesRoot)\Microsoft\Win32\SafeHandles\SafeThreadPoolIOHandle.cs" />
-    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\IOCompletionPollers.cs" />
-    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\ThreadPoolBoundHandleOverlapped.cs" />
-    <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\PreAllocatedOverlapped.cs" />
+    <Compile Include="$(LibrariesProjectRoot)System.Private.CoreLib\src\System\Threading\IOCompletionPollers.cs" />
+    <Compile Include="$(LibrariesProjectRoot)System.Private.CoreLib\src\System\Threading\ThreadPoolBoundHandle.cs" />
+    <Compile Include="$(LibrariesProjectRoot)System.Private.CoreLib\src\System\Threading\ThreadPoolBoundHandle.Unix.cs" Condition="'$(TargetsUnix)' == 'true'" />
+    <Compile Include="$(LibrariesProjectRoot)System.Private.CoreLib\src\System\Threading\ThreadPoolBoundHandle.Windows.cs" Condition="'$(TargetsWindows)' == 'true'" />
+    <Compile Include="$(LibrariesProjectRoot)System.Private.CoreLib\src\System\Threading\ThreadPoolBoundHandleOverlapped.cs" />
+    <Compile Include="$(LibrariesProjectRoot)System.Private.CoreLib\src\System\Threading\PreAllocatedOverlapped.cs" />
     <Compile Include="$(CommonPath)Interop\Windows\Kernel32\Interop.CompletionPort.cs">
       <Link>Common\Interop\Windows\Kernel32\Interop.CompletionPort.cs</Link>
     </Compile>
     <Compile Include="$(LibrariesProjectRoot)\System.Private.CoreLib\src\System\Threading\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.cs" />
     <Compile Include="$(BclSourcesRoot)\System\Diagnostics\Eventing\NativeRuntimeEventSource.PortableThreadPool.NativeSinks.CoreCLR.cs" />
-    <!-- <Compile Include="$(NativeAotBclSourcesRoot)\System\Threading\Lock.cs" /> -->
-    <!-- <Compile Include="$(NativeAotBclSourcesRoot)\System\Runtime\CompilerServices\ReflectionBlockedAttribute.cs" /> -->
   </ItemGroup>
   <ItemGroup Condition="'$(FeatureObjCMarshal)' == 'true'">
     <Compile Include="$(BclSourcesRoot)\System\Runtime\InteropServices\ObjectiveCMarshal.CoreCLR.cs" />
