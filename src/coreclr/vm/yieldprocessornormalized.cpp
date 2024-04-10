@@ -29,6 +29,21 @@ static double s_nsPerYieldMeasurements[NsPerYieldMeasurementCount];
 static int s_nextMeasurementIndex;
 static double s_establishedNsPerYield = YieldProcessorNormalization::TargetNsPerNormalizedYield;
 
+unsigned int YieldProcessorNormalization::s_iterationsCounter = 0;
+
+void YieldProcessorNormalization::AddIterations(unsigned int iterations)
+{
+    CONTRACTL
+    {
+        NOTHROW;
+        GC_NOTRIGGER;
+        MODE_PREEMPTIVE;
+    }
+    CONTRACTL_END;
+
+    s_iterationsCounter += iterations;
+}
+
 static unsigned int DetermineMeasureDurationUs()
 {
     CONTRACTL
@@ -240,6 +255,11 @@ void YieldProcessorNormalization::PerformMeasurement()
     if (s_normalizationState != NormalizationState::Uninitialized)
     {
         s_previousNormalizationTimeMs = GetTickCount();
+    }
+
+    if (s_normalizationState == NormalizationState::PartiallyInitialized)
+    {
+        printf("Iterations = %u, Established ns per yield = %f\n", s_iterationsCounter, establishedNsPerYield);
     }
 
     s_normalizationState =

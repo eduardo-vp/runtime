@@ -31,6 +31,8 @@ public:
     static const unsigned int MaxOptimalMaxNormalizedYieldsPerSpinIteration =
         TargetMaxNsPerSpinIteration * 3 / (TargetNsPerNormalizedYield * 2) + 1;
 
+    static unsigned int s_iterationsCounter;
+
 private:
     static bool s_isMeasurementScheduled;
 
@@ -46,6 +48,8 @@ public:
     static void NotifyGC();
 
     static void PerformMeasurement();
+
+    static void AddIterations(unsigned int iterations);
 
 private:
     static void ScheduleMeasurementIfNecessary();
