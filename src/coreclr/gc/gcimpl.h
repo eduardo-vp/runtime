@@ -95,6 +95,8 @@ public:
 
     void SetYieldProcessorScalingFactor(float yieldProcessorScalingFactor);
 
+    unsigned int GetYieldIterations ();
+
     void SetWaitForGCEvent();
     void ResetWaitForGCEvent();
 

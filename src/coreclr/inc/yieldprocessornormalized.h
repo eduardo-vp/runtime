@@ -31,7 +31,8 @@ public:
     static const unsigned int MaxOptimalMaxNormalizedYieldsPerSpinIteration =
         TargetMaxNsPerSpinIteration * 3 / (TargetNsPerNormalizedYield * 2) + 1;
 
-    static unsigned int s_iterationsCounter;
+    static unsigned int GCNotificationCounter;
+    static bool ResultsPrinted;
 
 private:
     static bool s_isMeasurementScheduled;
@@ -49,8 +50,6 @@ public:
 
     static void PerformMeasurement();
 
-    static void AddIterations(unsigned int iterations);
-
 private:
     static void ScheduleMeasurementIfNecessary();
 
@@ -64,7 +63,9 @@ public:
 
 private:
     static double AtomicLoad(double *valueRef);
+    static unsigned int AtomicLoad(unsigned int *valueRef);
     static void AtomicStore(double *valueRef, double value);
+    static void AtomicAdd(unsigned int *valueRef, unsigned int value);
 
     DISABLE_CONSTRUCT_COPY(YieldProcessorNormalization);
 

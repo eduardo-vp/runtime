@@ -29,20 +29,8 @@ static double s_nsPerYieldMeasurements[NsPerYieldMeasurementCount];
 static int s_nextMeasurementIndex;
 static double s_establishedNsPerYield = YieldProcessorNormalization::TargetNsPerNormalizedYield;
 
-unsigned int YieldProcessorNormalization::s_iterationsCounter = 0;
-
-void YieldProcessorNormalization::AddIterations(unsigned int iterations)
-{
-    CONTRACTL
-    {
-        NOTHROW;
-        GC_NOTRIGGER;
-        MODE_PREEMPTIVE;
-    }
-    CONTRACTL_END;
-
-    s_iterationsCounter += iterations;
-}
+unsigned int YieldProcessorNormalization::GCNotificationCounter = 0;
+bool YieldProcessorNormalization::ResultsPrinted = false;
 
 static unsigned int DetermineMeasureDurationUs()
 {
@@ -138,6 +126,15 @@ void YieldProcessorNormalization::NotifyGC()
     _ASSERTE(GCHeapUtilities::IsGCHeapInitialized());
 
     GCHeapUtilities::GetGCHeap()->SetYieldProcessorScalingFactor((float)s_yieldsPerNormalizedYield);
+
+    AtomicAdd(&GCNotificationCounter, 1);
+
+    if (GCNotificationCounter > 1 && !ResultsPrinted)
+    {
+        ResultsPrinted = true;
+        unsigned int yield_iterations = GCHeapUtilities::GetGCHeap()->GetYieldIterations();
+        printf("Iterations = %u\n", yield_iterations);
+    }
 }
 
 void YieldProcessorNormalization::PerformMeasurement()
@@ -259,7 +256,8 @@ void YieldProcessorNormalization::PerformMeasurement()
 
     if (s_normalizationState == NormalizationState::PartiallyInitialized)
     {
-        printf("Iterations = %u, Established ns per yield = %f\n", s_iterationsCounter, establishedNsPerYield);
+        unsigned int yield_iterations = GCHeapUtilities::GetGCHeap()->GetYieldIterations();
+        printf("Iterations = %u, Established ns per yield = %f\n", yield_iterations, establishedNsPerYield);
     }
 
     s_normalizationState =
@@ -353,6 +351,19 @@ double YieldProcessorNormalization::AtomicLoad(double *valueRef)
 #endif
 }
 
+unsigned int YieldProcessorNormalization::AtomicLoad(unsigned int *valueRef)
+{
+    WRAPPER_NO_CONTRACT;
+
+#ifdef TARGET_64BIT
+    return VolatileLoadWithoutBarrier(valueRef);
+#else
+    // I'll only test this on 64-bit
+    _ASSERTE(false);
+    // return InterlockedCompareExchangeT(valueRef, 0, 0);
+#endif
+}
+
 void YieldProcessorNormalization::AtomicStore(double *valueRef, double value)
 {
     WRAPPER_NO_CONTRACT;
@@ -364,3 +375,15 @@ void YieldProcessorNormalization::AtomicStore(double *valueRef, double value)
 #endif
 }
 
+void YieldProcessorNormalization::AtomicAdd(unsigned int *valueRef, unsigned int value)
+{
+    WRAPPER_NO_CONTRACT;
+
+#ifdef TARGET_64BIT
+    *valueRef += value;
+#else
+    // I'll only test this on 64-bit
+    _ASSERTE(false);
+    // InterlockedExchangeT(valueRef, value);
+#endif
+}

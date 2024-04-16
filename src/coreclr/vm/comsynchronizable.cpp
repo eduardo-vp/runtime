@@ -985,7 +985,6 @@ extern "C" void QCALLTYPE ThreadNative_SpinWait(INT32 iterations)
         return;
     }
 
-    YieldProcessorNormalization::AddIterations(iterations);
     YieldProcessorNormalized(iterations);
 }
 

@@ -49,6 +49,7 @@ public:
     }
 };
 
+unsigned int yield_iterations = 0;
 uint64_t gc_rand::x = 0;
 
 #if defined(BACKGROUND_GC) && defined(FEATURE_EVENT_TRACE)
@@ -783,6 +784,7 @@ respin:
                     {
                         break;
                     }
+                    yield_iterations++;
                     YieldProcessor();           // indicate to the processor that we are spinning
                 }
 
@@ -866,6 +868,7 @@ respin:
                 {
                     break;
                 }
+                yield_iterations++;
                 YieldProcessor();           // indicate to the processor that we are spinning
             }
 
@@ -1028,6 +1031,7 @@ t_join bgc_t_join;
         { \
             break;\
         } \
+        yield_iterations++; \
         YieldProcessor(); \
     } \
     if (!(expr)) \
@@ -1046,6 +1050,7 @@ t_join bgc_t_join;
             { \
                 break; \
             } \
+                yield_iterations++; \
                 YieldProcessor (); \
         } \
         if (!(expr)) \
@@ -1285,6 +1290,7 @@ void WaitLongerNoInstru (int i)
     {
         if  (g_num_processors > 1)
         {
+            yield_iterations++;
             YieldProcessor();           // indicate to the processor that we are spinning
             if  (i & 0x01f)
                 GCToOSInterface::YieldThread (0);
@@ -1388,6 +1394,7 @@ enter_msl_status gc_heap::enter_spin_lock_msl_helper (GCSpinLock* msl)
                         if (VolatileLoad (&msl->lock) == lock_free || IsGCInProgress ())
                             break;
                         // give the HT neighbor a chance to run
+                        yield_iterations++;
                         YieldProcessor ();
                     }
                     if (VolatileLoad (&msl->lock) != lock_free && !IsGCInProgress ())
@@ -1467,6 +1474,7 @@ retry:
                     {
                         if  (VolatileLoad(lock) == lock_free || IsGCInProgress())
                             break;
+                        yield_iterations++;
                         YieldProcessor();           // indicate to the processor that we are spinning
                     }
                     if  (VolatileLoad(lock) != lock_free && !IsGCInProgress())
@@ -1561,6 +1569,7 @@ void WaitLonger (int i
 #endif //SYNCHRONIZATION_STATS
         if  (g_num_processors > 1)
         {
+            yield_iterations++;
             YieldProcessor();           // indicate to the processor that we are spinning
             if  (i & 0x01f)
                 GCToOSInterface::YieldThread (0);
@@ -1613,6 +1622,7 @@ retry:
                     {
                         if  (spin_lock->lock == lock_free || gc_heap::gc_started)
                             break;
+                        yield_iterations++;
                         YieldProcessor();           // indicate to the processor that we are spinning
                     }
                     if  (spin_lock->lock != lock_free && !gc_heap::gc_started)
@@ -3945,6 +3955,7 @@ void region_allocator::enter_spin_lock()
 
         while (region_allocator_lock.lock >= 0)
         {
+            yield_iterations++;
             YieldProcessor();           // indicate to the processor that we are spinning
         }
     }
@@ -11996,6 +12007,7 @@ void gc_heap::set_region_gen_num (heap_segment* region, int gen_num)
 
                 while (write_barrier_spin_lock.lock >= 0)
                 {
+                    yield_iterations++;
                     YieldProcessor();           // indicate to the processor that we are spinning
                 }
             }
@@ -14653,6 +14665,7 @@ retry:
                 {
                     if  (gc_done_event_lock < 0)
                         break;
+                    yield_iterations++;
                     YieldProcessor();           // indicate to the processor that we are spinning
                 }
                 if  (gc_done_event_lock >= 0)
@@ -27553,6 +27566,7 @@ gc_heap::mark_steal()
                     break;
                 }
                 hpn = (hpn+1)%n_heaps;
+                yield_iterations++;
                 YieldProcessor();
             }
             if (free_count == n_heaps)
@@ -48939,6 +48953,11 @@ void GCHeap::SetYieldProcessorScalingFactor (float scalingFactor)
     }
 }
 
+unsigned int GCHeap::GetYieldIterations ()
+{
+    return yield_iterations;
+}
+
 unsigned int GCHeap::WhichGeneration (Object* object)
 {
     uint8_t* o = (uint8_t*)object;
@@ -51522,6 +51541,7 @@ retry:
                         break;
                     // give the HT neighbor a chance to run
                     YieldProcessor ();
+                    yield_iterations++;
                 }
             }
             if (lock < 0)

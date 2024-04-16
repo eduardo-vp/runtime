@@ -838,6 +838,8 @@ public:
     // Tells the GC how many YieldProcessor calls are equal to one scaled yield processor call.
     virtual void SetYieldProcessorScalingFactor(float yieldProcessorScalingFactor) PURE_VIRTUAL
 
+    virtual unsigned int GetYieldIterations () PURE_VIRTUAL
+
     // Flush the log and close the file if GCLog is turned on.
     virtual void Shutdown() PURE_VIRTUAL
 
