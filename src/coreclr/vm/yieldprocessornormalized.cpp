@@ -128,13 +128,6 @@ void YieldProcessorNormalization::NotifyGC()
     GCHeapUtilities::GetGCHeap()->SetYieldProcessorScalingFactor((float)s_yieldsPerNormalizedYield);
 
     AtomicAdd(&GCNotificationCounter, 1);
-
-    if (GCNotificationCounter > 1 && !ResultsPrinted)
-    {
-        ResultsPrinted = true;
-        unsigned int yield_iterations = GCHeapUtilities::GetGCHeap()->GetYieldIterations();
-        printf("Iterations = %u\n", yield_iterations);
-    }
 }
 
 void YieldProcessorNormalization::PerformMeasurement()
@@ -256,6 +249,7 @@ void YieldProcessorNormalization::PerformMeasurement()
 
     if (s_normalizationState == NormalizationState::PartiallyInitialized)
     {
+        _ASSERTE(GCNotificationCounter > 1);
         unsigned int yield_iterations = GCHeapUtilities::GetGCHeap()->GetYieldIterations();
         printf("Iterations = %u, Established ns per yield = %f\n", yield_iterations, establishedNsPerYield);
     }
