@@ -49,7 +49,7 @@ public:
     }
 };
 
-unsigned int yield_iterations = 0;
+unsigned int total_yield_iterations = 0;
 uint64_t gc_rand::x = 0;
 
 #if defined(BACKGROUND_GC) && defined(FEATURE_EVENT_TRACE)
@@ -778,6 +778,7 @@ public:
             {
 respin:
                 int spin_count = 128 * yp_spin_count_unit;
+                unsigned int yield_iterations = 0;
                 for (int j = 0; j < spin_count; j++)
                 {
                     if (color != join_struct.lock_color.LoadWithoutBarrier())
@@ -787,6 +788,7 @@ respin:
                     yield_iterations++;
                     YieldProcessor();           // indicate to the processor that we are spinning
                 }
+                Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
 
                 // we've spun, and if color still hasn't changed, fall into hard wait
                 if (color == join_struct.lock_color.LoadWithoutBarrier())
@@ -862,6 +864,7 @@ respin:
             //busy wait around the color
 respin:
             int spin_count = 256 * yp_spin_count_unit;
+            unsigned int yield_iterations = 0;
             for (int j = 0; j < spin_count; j++)
             {
                 if (join_struct.wait_done)
@@ -871,6 +874,7 @@ respin:
                 yield_iterations++;
                 YieldProcessor();           // indicate to the processor that we are spinning
             }
+            Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
 
             // we've spun, and if color still hasn't changed, fall into hard wait
             if (!join_struct.wait_done)
@@ -1025,6 +1029,7 @@ t_join bgc_t_join;
 
 #define spin_and_switch(count_to_spin, expr) \
 { \
+    unsigned int yield_iterations = 0; \
     for (int j = 0; j < count_to_spin; j++) \
     { \
         if (expr) \
@@ -1034,6 +1039,7 @@ t_join bgc_t_join;
         yield_iterations++; \
         YieldProcessor(); \
     } \
+    Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations); \
     if (!(expr)) \
     { \
         GCToOSInterface::YieldThread(0); \
@@ -1044,6 +1050,7 @@ t_join bgc_t_join;
 { \
     while (!expr) \
     { \
+        unsigned int yield_iterations = 0; \
         for (int j = 0; j < count_to_spin; j++) \
         { \
             if (expr) \
@@ -1053,6 +1060,7 @@ t_join bgc_t_join;
                 yield_iterations++; \
                 YieldProcessor (); \
         } \
+        Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations); \
         if (!(expr)) \
         { \
             GCToOSInterface::YieldThread (0); \
@@ -1290,7 +1298,7 @@ void WaitLongerNoInstru (int i)
     {
         if  (g_num_processors > 1)
         {
-            yield_iterations++;
+            Interlocked::Increment(&total_yield_iterations);
             YieldProcessor();           // indicate to the processor that we are spinning
             if  (i & 0x01f)
                 GCToOSInterface::YieldThread (0);
@@ -1389,6 +1397,7 @@ enter_msl_status gc_heap::enter_spin_lock_msl_helper (GCSpinLock* msl)
 #else //!MULTIPLE_HEAPS
                     int spin_count = yp_spin_count_unit;
 #endif //!MULTIPLE_HEAPS
+                    unsigned int yield_iterations = 0;
                     for (int j = 0; j < spin_count; j++)
                     {
                         if (VolatileLoad (&msl->lock) == lock_free || IsGCInProgress ())
@@ -1397,6 +1406,7 @@ enter_msl_status gc_heap::enter_spin_lock_msl_helper (GCSpinLock* msl)
                         yield_iterations++;
                         YieldProcessor ();
                     }
+                    Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
                     if (VolatileLoad (&msl->lock) != lock_free && !IsGCInProgress ())
                     {
 #ifdef DYNAMIC_HEAP_COUNT
@@ -1470,6 +1480,7 @@ retry:
 #else //!MULTIPLE_HEAPS
                     int spin_count = yp_spin_count_unit;
 #endif //!MULTIPLE_HEAPS
+                    unsigned int yield_iterations = 0;
                     for (int j = 0; j < spin_count; j++)
                     {
                         if  (VolatileLoad(lock) == lock_free || IsGCInProgress())
@@ -1477,6 +1488,7 @@ retry:
                         yield_iterations++;
                         YieldProcessor();           // indicate to the processor that we are spinning
                     }
+                    Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
                     if  (VolatileLoad(lock) != lock_free && !IsGCInProgress())
                     {
                         safe_switch_to_thread();
@@ -1569,7 +1581,7 @@ void WaitLonger (int i
 #endif //SYNCHRONIZATION_STATS
         if  (g_num_processors > 1)
         {
-            yield_iterations++;
+            Interlocked::Increment(&total_yield_iterations);
             YieldProcessor();           // indicate to the processor that we are spinning
             if  (i & 0x01f)
                 GCToOSInterface::YieldThread (0);
@@ -1618,6 +1630,7 @@ retry:
 #else //!MULTIPLE_HEAPS
                     int spin_count = yp_spin_count_unit;
 #endif //!MULTIPLE_HEAPS
+                    unsigned int yield_iterations = 0;
                     for (int j = 0; j < spin_count; j++)
                     {
                         if  (spin_lock->lock == lock_free || gc_heap::gc_started)
@@ -1625,6 +1638,7 @@ retry:
                         yield_iterations++;
                         YieldProcessor();           // indicate to the processor that we are spinning
                     }
+                    Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
                     if  (spin_lock->lock != lock_free && !gc_heap::gc_started)
                     {
 #ifdef SYNCHRONIZATION_STATS
@@ -3953,11 +3967,13 @@ void region_allocator::enter_spin_lock()
         if (Interlocked::CompareExchange(&region_allocator_lock.lock, 0, -1) < 0)
             break;
 
+        unsigned int yield_iterations = 0;
         while (region_allocator_lock.lock >= 0)
         {
             yield_iterations++;
             YieldProcessor();           // indicate to the processor that we are spinning
         }
+        Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
     }
 #ifdef _DEBUG
     region_allocator_lock.holding_thread = GCToEEInterface::GetThread();
@@ -12005,11 +12021,13 @@ void gc_heap::set_region_gen_num (heap_segment* region, int gen_num)
                 if ((ephemeral_low <= region_start) && (region_end <= ephemeral_high))
                     return;
 
+                unsigned int yield_iterations = 0;
                 while (write_barrier_spin_lock.lock >= 0)
                 {
                     yield_iterations++;
                     YieldProcessor();           // indicate to the processor that we are spinning
                 }
+                Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
             }
 #ifdef _DEBUG
             write_barrier_spin_lock.holding_thread = GCToEEInterface::GetThread();
@@ -14661,6 +14679,7 @@ retry:
             if  (g_num_processors > 1)
             {
                 int spin_count = yp_spin_count_unit;
+                unsigned int yield_iterations = 0;
                 for (int j = 0; j < spin_count; j++)
                 {
                     if  (gc_done_event_lock < 0)
@@ -14668,6 +14687,7 @@ retry:
                     yield_iterations++;
                     YieldProcessor();           // indicate to the processor that we are spinning
                 }
+                Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
                 if  (gc_done_event_lock >= 0)
                     GCToOSInterface::YieldThread(++dwSwitchCount);
             }
@@ -27551,6 +27571,7 @@ gc_heap::mark_steal()
             snoop_stat.stack_idle_count++;
             //dprintf (SNOOP_LOG, ("heap%d: counting idle threads", heap_number));
 #endif //SNOOP_STATS
+            unsigned int yield_iterations = 0;
             for (int hpn = (heap_number+1)%n_heaps; hpn != heap_number;)
             {
                 if (!((g_heaps [hpn])->mark_stack_busy()))
@@ -27569,6 +27590,7 @@ gc_heap::mark_steal()
                 yield_iterations++;
                 YieldProcessor();
             }
+            Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
             if (free_count == n_heaps)
             {
                 break;
@@ -48955,7 +48977,7 @@ void GCHeap::SetYieldProcessorScalingFactor (float scalingFactor)
 
 unsigned int GCHeap::GetYieldIterations ()
 {
-    return yield_iterations;
+    return total_yield_iterations;
 }
 
 unsigned int GCHeap::WhichGeneration (Object* object)
@@ -51535,6 +51557,7 @@ retry:
             if (g_num_processors > 1)
             {
                 int spin_count = 128 * yp_spin_count_unit;
+                unsigned int yield_iterations = 0;
                 for (int j = 0; j < spin_count; j++)
                 {
                     if (lock < 0)
@@ -51543,6 +51566,7 @@ retry:
                     YieldProcessor ();
                     yield_iterations++;
                 }
+                Interlocked::ExchangeAdd(&total_yield_iterations, yield_iterations);
             }
             if (lock < 0)
                 break;
