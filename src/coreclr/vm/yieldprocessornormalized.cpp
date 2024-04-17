@@ -200,6 +200,12 @@ void YieldProcessorNormalization::PerformMeasurement()
 
     GCHeapUtilities::GetGCHeap()->SetYieldProcessorScalingFactor((float)yieldsPerNormalizedYield);
 
+    if (s_normalizationState == NormalizationState::Uninitialized)
+    {
+        unsigned int yield_iterations = GCHeapUtilities::GetGCHeap()->GetYieldIterations();
+        printf("Iterations = %u, Established ns per yield = %f\n", yield_iterations, establishedNsPerYield);
+    }
+
     s_previousNormalizationTimeMs = GetTickCount();
     s_normalizationState = NormalizationState::Initialized;
     s_isMeasurementScheduled = false;
