@@ -140,6 +140,10 @@ void YieldProcessorNormalization::PerformMeasurement()
     }
     CONTRACTL_END;
 
+    LARGE_INTEGER li;
+    QueryPerformanceCounter(&li);
+    UINT64 startTicks = li.QuadPart;
+
     _ASSERTE(s_isMeasurementScheduled ^ (s_normalizationState == NormalizationState::Uninitialized));
 
     double latestNsPerYield;
@@ -245,6 +249,12 @@ void YieldProcessorNormalization::PerformMeasurement()
     if (s_normalizationState != NormalizationState::Uninitialized)
     {
         s_previousNormalizationTimeMs = GetTickCount();
+    }
+    else
+    {
+        QueryPerformanceCounter(&li);
+        UINT64 endTicks = li.QuadPart;
+        printf("Normalization took %f us\n", (endTicks - startTicks) * 1000.0 * 1000.0 / s_performanceCounterTicksPerS);
     }
 
     if (s_normalizationState == NormalizationState::PartiallyInitialized)
