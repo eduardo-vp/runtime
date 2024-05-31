@@ -85,6 +85,7 @@
       DOTNET_JitOptRepeat;
       DOTNET_JitOptRepeatCount;
       DOTNET_JitDoReversePostOrderLayout;
+      DOTNET_LegacyExceptionHandling;
     </DOTNETVariables>
   </PropertyGroup>
   <ItemGroup>
@@ -94,6 +95,7 @@
   <!-- Default values for some DOTNET_* variables -->
   <ItemDefinitionGroup>
     <TestEnvironment>
+      <LegacyExceptionHandling>1</LegacyExceptionHandling>
       <TieredCompilation>0</TieredCompilation>
       <DbgEnableMiniDump Condition="'$(TargetsWindows)' != 'true'">1</DbgEnableMiniDump> <!-- Enable minidumps for all scenarios -->
       <DbgMiniDumpName Condition="'$(TargetsWindows)' != 'true'">$HELIX_DUMP_FOLDER/coredump.%d.dmp</DbgMiniDumpName>
