@@ -5,7 +5,7 @@
 // #include "yieldprocessornormalized.h"
 
 
-// #include "finalizerthread.h"
+#include "finalizerthread.h"
 
 enum class NormalizationState : UINT8
 {
@@ -161,7 +161,11 @@ void YieldProcessorNormalization::PerformMeasurement()
     else if (s_normalizationState == NormalizationState::Uninitialized)
     {
         LARGE_INTEGER li;
+#ifdef FEATURE_NATIVEAOT
+        if (PalQueryPerformanceFrequency() < 1000 * 1000)
+#else
         if (!QueryPerformanceFrequency(&li) || li.QuadPart < 1000 * 1000)
+#endif
         {
             // High precision clock not available or clock resolution is too low, resort to defaults
             s_normalizationState = NormalizationState::Failed;
@@ -178,11 +182,12 @@ void YieldProcessorNormalization::PerformMeasurement()
             {
                 AtomicStore(&s_establishedNsPerYield, latestNsPerYield);
             }
-
+#ifndef FEATURE_NATIVEAOT
             if (i < NsPerYieldMeasurementCount - 1)
             {
                 FireEtwYieldProcessorMeasurement(GetClrInstanceId(), latestNsPerYield, s_establishedNsPerYield);
             }
+#endif
         }
     }
     else
@@ -205,7 +210,9 @@ void YieldProcessorNormalization::PerformMeasurement()
         AtomicStore(&s_establishedNsPerYield, establishedNsPerYield);
     }
 
+#ifndef FEATURE_NATIVEAOT
     FireEtwYieldProcessorMeasurement(GetClrInstanceId(), latestNsPerYield, s_establishedNsPerYield);
+#endif
 
     // Calculate the number of yields required to span the duration of a normalized yield
     unsigned int yieldsPerNormalizedYield = Max(1u, (unsigned int)(TargetNsPerNormalizedYield / establishedNsPerYield + 0.5));
@@ -287,11 +294,12 @@ void YieldProcessorNormalization::FireMeasurementEvents()
     for (int i = 0; i < NsPerYieldMeasurementCount; ++i)
     {
         double nsPerYield = AtomicLoad(&s_nsPerYieldMeasurements[nextIndex]);
+#ifndef FEATURE_NATIVEAOT
         if (nsPerYield != 0) // the array may not be fully initialized yet
         {
             FireEtwYieldProcessorMeasurement(GetClrInstanceId(), nsPerYield, establishedNsPerYield);
         }
-
+#endif
         if (++nextIndex >= NsPerYieldMeasurementCount)
         {
             nextIndex = 0;

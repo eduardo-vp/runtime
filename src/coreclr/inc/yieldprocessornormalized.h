@@ -23,6 +23,10 @@ FORCEINLINE void System_YieldProcessor() { YieldProcessor(); }
 
 #ifdef FEATURE_NATIVEAOT
 #define static_assert_no_msg( cond ) static_assert( cond, #cond )
+// I haven't seen an equivalent for GetTickCount yet, defining it like this for now
+unsigned int GetTickCount() {
+    return 0;
+}
 // verify these are correct
 typedef size_t SIZE_T;
 typedef BYTE UINT8;

@@ -13,6 +13,10 @@ class FinalizerThread
     static ULONGLONG LastHeapDumpTime;
 #endif
 
+#ifdef FEATURE_NATIVEAOT
+    typedef void VOID;
+#endif
+
     static CLREvent *hEventFinalizer;
     static CLREvent *hEventFinalizerDone;
     static CLREvent *hEventFinalizerToShutDown;

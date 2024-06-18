@@ -27,6 +27,8 @@ static double s_nsPerYieldMeasurements[NsPerYieldMeasurementCount];
 static int s_nextMeasurementIndex;
 static double s_establishedNsPerYield = YieldProcessorNormalization::TargetNsPerNormalizedYield;
 
+GPTR_DECL(Thread, g_pFinalizerThread); // i want to understand where this is declared
+
 static unsigned int DetermineMeasureDurationUs()
 {
     CONTRACTL
