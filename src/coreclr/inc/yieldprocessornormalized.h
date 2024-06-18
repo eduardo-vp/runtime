@@ -20,6 +20,29 @@ FORCEINLINE void System_YieldProcessor() { YieldProcessor(); }
     T() = delete; \
     DISABLE_COPY(T)
 
+
+#ifdef FEATURE_NATIVEAOT
+#define static_assert_no_msg( cond ) static_assert( cond, #cond )
+// verify these are correct
+typedef size_t SIZE_T;
+typedef BYTE UINT8;
+typedef ULONGLONG UINT64;
+
+template <typename T>
+T Min(T v1, T v2)
+{
+    STATIC_CONTRACT_LEAF;
+    return v1 < v2 ? v1 : v2;
+}
+
+template <typename T>
+T Max(T v1, T v2)
+{
+    STATIC_CONTRACT_LEAF;
+    return v1 > v2 ? v1 : v2;
+}
+#endif
+
 class YieldProcessorNormalization
 {
 public:

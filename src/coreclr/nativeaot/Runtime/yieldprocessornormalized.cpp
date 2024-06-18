@@ -13,8 +13,13 @@
 #include "rhassert.h"
 #include "slist.h"
 #include "volatile.h"
-#include "yieldprocessornormalized.h"
+#include "../../inc/yieldprocessornormalized.h"
 
+#include "../../vm/yieldprocessornormalizedshared.cpp"
+
+
+
+/*
 #define ULONGLONG int64_t
 
 static Volatile<bool> s_isYieldProcessorNormalizedInitialized = false;
@@ -116,3 +121,4 @@ void EnsureYieldProcessorNormalizedInitialized()
         InitializeYieldProcessorNormalized();
     }
 }
+*/

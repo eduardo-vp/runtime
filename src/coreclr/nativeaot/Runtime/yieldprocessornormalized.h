@@ -1,6 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+// probably want to get rid of this file and use the one from coreclr
+
 #pragma once
 
 #include <limits.h>
