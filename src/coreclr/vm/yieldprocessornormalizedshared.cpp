@@ -160,9 +160,8 @@ void YieldProcessorNormalization::PerformMeasurement()
     }
     else if (s_normalizationState == NormalizationState::Uninitialized)
     {
-        LARGE_INTEGER li;
 #ifdef FEATURE_NATIVEAOT
-        if (PalQueryPerformanceFrequency() < 1000 * 1000)
+        if ((s_performanceCounterTicksPerS = PalQueryPerformanceFrequency()) < 1000 * 1000)
 #else
         if (!QueryPerformanceFrequency(&li) || li.QuadPart < 1000 * 1000)
 #endif
@@ -171,7 +170,10 @@ void YieldProcessorNormalization::PerformMeasurement()
             s_normalizationState = NormalizationState::Failed;
             return;
         }
+
+#ifndef FEATURE_NATIVEAOT
         s_performanceCounterTicksPerS = li.QuadPart;
+#endif
 
         unsigned int measureDurationUs = DetermineMeasureDurationUs();
         for (int i = 0; i < NsPerYieldMeasurementCount; ++i)
@@ -271,7 +273,8 @@ void YieldProcessorNormalization::ScheduleMeasurementIfNecessary()
     FinalizerThread::EnableFinalization();
 }
 
-
+// EventEnabledYieldProcessorMeasurement and FireEtwYieldProcessorMeasurement aren't available for AOT
+#ifndef FEATURE_NATIVEAOT
 void YieldProcessorNormalization::FireMeasurementEvents()
 {
     CONTRACTL
@@ -294,18 +297,18 @@ void YieldProcessorNormalization::FireMeasurementEvents()
     for (int i = 0; i < NsPerYieldMeasurementCount; ++i)
     {
         double nsPerYield = AtomicLoad(&s_nsPerYieldMeasurements[nextIndex]);
-#ifndef FEATURE_NATIVEAOT
         if (nsPerYield != 0) // the array may not be fully initialized yet
         {
             FireEtwYieldProcessorMeasurement(GetClrInstanceId(), nsPerYield, establishedNsPerYield);
         }
-#endif
+
         if (++nextIndex >= NsPerYieldMeasurementCount)
         {
             nextIndex = 0;
         }
     }
 }
+#endif
 
 double YieldProcessorNormalization::AtomicLoad(double *valueRef)
 {

@@ -1,6 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+#include "../../inc/yieldprocessornormalized.h"
+
+/*
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 // probably want to get rid of this file and use the one from coreclr
 
 #pragma once
@@ -229,3 +234,4 @@ FORCEINLINE void YieldProcessorWithBackOffNormalized(
         System_YieldProcessor();
     } while (--n != 0);
 }
+*/
