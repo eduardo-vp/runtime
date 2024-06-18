@@ -4,6 +4,11 @@
 #include "common.h"
 #include "gcenv.h"
 #include "gcheaputilities.h"
+// #include "gchandleutilities.h"
+// #include "RestrictedCallouts.h"
+// #include "forward_declarations.h"
+// #include "RhConfig.h"
+
 #include "CommonTypes.h"
 #include "CommonMacros.h"
 #include "daccess.h"
@@ -13,10 +18,23 @@
 #include "rhassert.h"
 #include "slist.h"
 #include "volatile.h"
+
+// #include "varint.h"
+// #include "regdisplay.h"
+// #include "StackFrameIterator.h"
+// #include "interoplibinterface.h"
+
+// #include "thread.h"
+// #include "threadstore.h"
+// #include "threadstore.inl"
+// #include "thread.inl"
+
+// #include "gcdesc.h"
+
 #include "../../inc/yieldprocessornormalized.h"
 #include "../../vm/synch.h"
 
-// #include "../../vm/yieldprocessornormalizedshared.cpp"
+#include "../../vm/yieldprocessornormalizedshared.cpp"
 
 
 

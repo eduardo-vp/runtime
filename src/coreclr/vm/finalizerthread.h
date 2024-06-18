@@ -5,16 +5,19 @@
 #ifndef _FINALIZER_THREAD_H_
 #define _FINALIZER_THREAD_H_
 
+#ifdef FEATURE_NATIVEAOT
+typedef void VOID;
+GPTR_IMPL(Thread, g_pFinalizerThread);
+// Global state variable indicating if the EE has been started up.
+Volatile<BOOL> g_fEEStarted = FALSE;
+#endif
+
 class FinalizerThread
 {
     static BOOL fQuitFinalizer;
 
 #if defined(__linux__) && defined(FEATURE_EVENT_TRACE)
     static ULONGLONG LastHeapDumpTime;
-#endif
-
-#ifdef FEATURE_NATIVEAOT
-    typedef void VOID;
 #endif
 
     static CLREvent *hEventFinalizer;
@@ -54,6 +57,7 @@ public:
 
     static OBJECTREF GetNextFinalizableObject();
 
+#ifndef FEATURE_NATIVEAOT
     static void RaiseShutdownEvents()
     {
         WRAPPER_NO_CONTRACT;
@@ -68,6 +72,7 @@ public:
             hEventFinalizerToShutDown->Wait(INFINITE, /*alertable*/ TRUE);
         }
     }
+#endif
 
     static void FinalizerThreadWait(DWORD timeout = INFINITE);
 

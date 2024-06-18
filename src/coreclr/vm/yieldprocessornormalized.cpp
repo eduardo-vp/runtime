@@ -27,8 +27,6 @@ static double s_nsPerYieldMeasurements[NsPerYieldMeasurementCount];
 static int s_nextMeasurementIndex;
 static double s_establishedNsPerYield = YieldProcessorNormalization::TargetNsPerNormalizedYield;
 
-GPTR_DECL(Thread, g_pFinalizerThread); // i want to understand where this is declared
-
 static unsigned int DetermineMeasureDurationUs()
 {
     CONTRACTL
@@ -207,6 +205,8 @@ void YieldProcessorNormalization::PerformMeasurement()
     s_isMeasurementScheduled = false;
 }
 
+// i want to know where g_fEEStarted is defined, after this run works, try declaring something
+// int g_fEEStarted = 0;
 
 void YieldProcessorNormalization::ScheduleMeasurementIfNecessary()
 {
