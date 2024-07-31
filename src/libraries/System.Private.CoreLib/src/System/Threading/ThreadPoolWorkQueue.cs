@@ -420,6 +420,7 @@ namespace System.Threading
         private readonly int[] _assignedWorkItemQueueThreadCounts =
             s_assignableWorkItemQueueCount > 0 ? new int[s_assignableWorkItemQueueCount] : Array.Empty<int>();
 
+#if !TARGET_WINDOWS
         private object? _nextWorkItemToProcess;
 
         // The scheme works as follows:
@@ -437,14 +438,18 @@ namespace System.Threading
             Determining,
             Scheduled
         }
+#endif
 
         [StructLayout(LayoutKind.Sequential)]
         private struct CacheLineSeparated
         {
             private readonly Internal.PaddingFor32 pad1;
 
+#if TARGET_WINDOWS
+            public int hasOutstandingThreadRequest;
+#else
             public int queueProcessingStage;
-
+#endif
             private readonly Internal.PaddingFor32 pad2;
         }
 
@@ -607,15 +612,33 @@ namespace System.Threading
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureThreadRequested()
         {
+#if TARGET_WINDOWS
+            // Only one thread is requested at a time to avoid over-parallelization
+            if (Interlocked.CompareExchange(ref _separated.hasOutstandingThreadRequest, 1, 0) == 0)
+#else // TARGET_WINDOWS
             // Only request a thread if the stage is NotScheduled.
             // Otherwise let the current requested thread handle parallelization.
             if (Interlocked.Exchange(
                 ref _separated.queueProcessingStage,
                 (int)QueueProcessingStage.Scheduled) == (int)QueueProcessingStage.NotScheduled)
+#endif // TARGET_WINDOWS
             {
                 ThreadPool.RequestWorkerThread();
             }
         }
+
+#if TARGET_WINDOWS
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void MarkThreadRequestSatisfied()
+        {
+            // The change needs to be visible to other threads that may request a worker thread before a work item is attempted
+            // to be dequeued by the current thread. In particular, if an enqueuer queues a work item and does not request a
+            // thread because it sees that a thread request is already outstanding, and the current thread is the last thread
+            // processing work items, the current thread must see the work item queued by the enqueuer.
+            _separated.hasOutstandingThreadRequest = 0;
+            Interlocked.MemoryBarrier();
+        }
+#endif
 
         public void Enqueue(object callback, bool forceGlobal)
         {
@@ -715,7 +738,7 @@ namespace System.Threading
             {
                 return workItem;
             }
-
+#if !TARGET_WINDOWS
             if (_nextWorkItemToProcess != null)
             {
                 workItem = Interlocked.Exchange(ref _nextWorkItemToProcess, null);
@@ -724,7 +747,7 @@ namespace System.Threading
                     return workItem;
                 }
             }
-
+#endif
             // Check for high-priority work items
             if (tl.isProcessingHighPriorityWorkItems)
             {
@@ -858,6 +881,7 @@ namespace System.Threading
         // Dispatch (if YieldFromDispatchLoop is true), or performing periodic activities
         public const uint DispatchQuantumMs = 30;
 
+#if !TARGET_WINDOWS
         private static object? DequeueWithPriorityAlternation(ThreadPoolWorkQueue workQueue, ThreadPoolWorkQueueThreadLocals tl, out bool missedSteal)
         {
             object? workItem = null;
@@ -883,6 +907,7 @@ namespace System.Threading
 
             return workItem;
         }
+#endif // TARGET_WINDOWS
 
         /// <summary>
         /// Dispatches work items to this thread.
@@ -891,6 +916,7 @@ namespace System.Threading
         /// <c>true</c> if this thread did as much work as was available or its quantum expired.
         /// <c>false</c> if this thread stopped working early.
         /// </returns>
+#if !TARGET_WINDOWS
         internal static bool Dispatch()
         {
             ThreadPoolWorkQueue workQueue = ThreadPool.s_workQueue;
@@ -1161,6 +1187,197 @@ namespace System.Threading
                 workQueue.RefreshLoggingEnabled();
             }
         }
+#else // TARGET_WINDOWS
+        internal static bool Dispatch()
+        {
+            ThreadPoolWorkQueue workQueue = ThreadPool.s_workQueue;
+            ThreadPoolWorkQueueThreadLocals tl = workQueue.GetOrCreateThreadLocals();
+            if (s_assignableWorkItemQueueCount > 0)
+            {
+                workQueue.AssignWorkItemQueue(tl);
+            }
+
+            // Before dequeuing the first work item, acknowledge that the thread request has been satisfied
+            workQueue.MarkThreadRequestSatisfied();
+
+            object? workItem = null;
+            {
+                // Alternate between checking for high-prioriy and normal-priority work first, that way both sets of work
+                // items get a chance to run in situations where worker threads are starved and work items that run also
+                // take over the thread, sustaining starvation. For example, when worker threads are continually starved,
+                // high-priority work items may always be queued and normal-priority work items may not get a chance to run.
+                bool dispatchNormalPriorityWorkFirst = workQueue._dispatchNormalPriorityWorkFirst;
+                if (dispatchNormalPriorityWorkFirst && !tl.workStealingQueue.CanSteal)
+                {
+                    workQueue._dispatchNormalPriorityWorkFirst = !dispatchNormalPriorityWorkFirst;
+                    ConcurrentQueue<object> queue =
+                        s_assignableWorkItemQueueCount > 0 ? tl.assignedGlobalWorkItemQueue : workQueue.workItems;
+                    if (!queue.TryDequeue(out workItem) && s_assignableWorkItemQueueCount > 0)
+                    {
+                        workQueue.workItems.TryDequeue(out workItem);
+                    }
+                }
+
+                if (workItem == null)
+                {
+                    bool missedSteal = false;
+                    workItem = workQueue.Dequeue(tl, ref missedSteal);
+
+                    if (workItem == null)
+                    {
+                        if (s_assignableWorkItemQueueCount > 0)
+                        {
+                            workQueue.UnassignWorkItemQueue(tl);
+                        }
+
+                        //
+                        // No work.
+                        // If we missed a steal, though, there may be more work in the queue.
+                        // Instead of looping around and trying again, we'll just request another thread.  Hopefully the thread
+                        // that owns the contended work-stealing queue will pick up its own workitems in the meantime,
+                        // which will be more efficient than this thread doing it anyway.
+                        //
+                        if (missedSteal)
+                        {
+                            workQueue.EnsureThreadRequested();
+                        }
+
+                        // Tell the VM we're returning normally, not because Hill Climbing asked us to return.
+                        return true;
+                    }
+                }
+
+                // A work item was successfully dequeued, and there may be more work items to process. Request a thread to
+                // parallelize processing of work items, before processing more work items. Following this, it is the
+                // responsibility of the new thread and other enqueuers to request more threads as necessary. The
+                // parallelization may be necessary here for correctness (aside from perf) if the work item blocks for some
+                // reason that may have a dependency on other queued work items.
+                workQueue.EnsureThreadRequested();
+
+                // After this point, this method is no longer responsible for ensuring thread requests except for missed steals
+            }
+
+            // Has the desire for logging changed since the last time we entered?
+            workQueue.RefreshLoggingEnabled();
+
+            object? threadLocalCompletionCountObject = tl.threadLocalCompletionCountObject;
+            Thread currentThread = tl.currentThread;
+            // Start on clean ExecutionContext and SynchronizationContext
+            currentThread._executionContext = null;
+            currentThread._synchronizationContext = null;
+            //
+            // Save the start time
+            //
+            int startTickCount = Environment.TickCount;
+            //
+            // Loop until our quantum expires or there is no work.
+            //
+            while (true)
+            {
+                if (workItem == null)
+                {
+                    bool missedSteal = false;
+                    workItem = workQueue.Dequeue(tl, ref missedSteal);
+                    if (workItem == null)
+                    {
+                        if (s_assignableWorkItemQueueCount > 0)
+                        {
+                            workQueue.UnassignWorkItemQueue(tl);
+                        }
+                        //
+                        // No work.
+                        // If we missed a steal, though, there may be more work in the queue.
+                        // Instead of looping around and trying again, we'll just request another thread.  Hopefully the thread
+                        // that owns the contended work-stealing queue will pick up its own workitems in the meantime,
+                        // which will be more efficient than this thread doing it anyway.
+                        //
+                        if (missedSteal)
+                        {
+                            workQueue.EnsureThreadRequested();
+                        }
+                        return true;
+                    }
+                }
+                if (workQueue._loggingEnabled && FrameworkEventSource.Log.IsEnabled())
+                {
+                    FrameworkEventSource.Log.ThreadPoolDequeueWorkObject(workItem);
+                }
+                //
+                // Execute the workitem outside of any finally blocks, so that it can be aborted if needed.
+                //
+#if FEATURE_OBJCMARSHAL
+                if (AutoreleasePool.EnableAutoreleasePool)
+                {
+                    DispatchItemWithAutoreleasePool(workItem, currentThread);
+                }
+                else
+#endif
+#pragma warning disable CS0162 // Unreachable code detected. EnableWorkerTracking may be a constant in some runtimes.
+                if (ThreadPool.EnableWorkerTracking)
+                {
+                    DispatchWorkItemWithWorkerTracking(workItem, currentThread);
+                }
+                else
+                {
+                    DispatchWorkItem(workItem, currentThread);
+                }
+#pragma warning restore CS0162
+                // Release refs
+                workItem = null;
+                // Return to clean ExecutionContext and SynchronizationContext. This may call user code (AsyncLocal value
+                // change notifications).
+                ExecutionContext.ResetThreadPoolThread(currentThread);
+                // Reset thread state after all user code for the work item has completed
+                currentThread.ResetThreadPoolThread();
+                //
+                // Notify the VM that we executed this workitem.  This is also our opportunity to ask whether Hill Climbing wants
+                // us to return the thread to the pool or not.
+                //
+                int currentTickCount = Environment.TickCount;
+                if (!ThreadPool.NotifyWorkItemComplete(threadLocalCompletionCountObject!, currentTickCount))
+                {
+                    // This thread is being parked and may remain inactive for a while. Transfer any thread-local work items
+                    // to ensure that they would not be heavily delayed. Tell the caller that this thread was requested to stop
+                    // processing work items.
+                    tl.TransferLocalWork();
+                    tl.isProcessingHighPriorityWorkItems = false;
+                    if (s_assignableWorkItemQueueCount > 0)
+                    {
+                        workQueue.UnassignWorkItemQueue(tl);
+                    }
+                    return false;
+                }
+                // Check if the dispatch quantum has expired
+                if ((uint)(currentTickCount - startTickCount) < DispatchQuantumMs)
+                {
+                    continue;
+                }
+                // The quantum expired, do any necessary periodic activities
+                if (ThreadPool.YieldFromDispatchLoop)
+                {
+                    // The runtime-specific thread pool implementation requires the Dispatch loop to return to the VM
+                    // periodically to let it perform its own work
+                    tl.isProcessingHighPriorityWorkItems = false;
+                    if (s_assignableWorkItemQueueCount > 0)
+                    {
+                        workQueue.UnassignWorkItemQueue(tl);
+                    }
+                    return true;
+                }
+                if (s_assignableWorkItemQueueCount > 0)
+                {
+                    // Due to hill climbing, over time arbitrary worker threads may stop working and eventually unbalance the
+                    // queue assignments. Periodically try to reassign a queue to keep the assigned queues busy.
+                    workQueue.TryReassignWorkItemQueue(tl);
+                }
+                // This method will continue to dispatch work items. Refresh the start tick count for the next dispatch
+                // quantum and do some periodic activities.
+                startTickCount = currentTickCount;
+                // Periodically refresh whether logging is enabled
+                workQueue.RefreshLoggingEnabled();
+            }
+        }
+#endif // TARGET_WINDOWS
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void DispatchWorkItemWithWorkerTracking(object workItem, Thread currentThread)
