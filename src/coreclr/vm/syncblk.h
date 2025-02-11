@@ -514,12 +514,6 @@ public:
         return m_Recursion;
     }
 
-    PTR_Thread GetHoldingThread() const
-    {
-        LIMITED_METHOD_CONTRACT;
-        return g_pThinLockThreadIdDispenser->IdToThreadWithValidation(m_HoldingThreadId);
-    }
-
     DWORD GetHoldingThreadId() const
     {
         LIMITED_METHOD_CONTRACT;
@@ -575,6 +569,7 @@ public:
     void    AllocLockSemEvent();
     LONG    LeaveCompletely();
     BOOL    OwnedByCurrentThread();
+    PTR_Thread GetHoldingThread();
 
     void    IncrementTransientPrecious()
     {

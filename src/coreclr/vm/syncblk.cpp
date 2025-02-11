@@ -2200,7 +2200,6 @@ SyncBlock *ObjHeader::GetSyncBlock()
                             if (pThread == NULL)
                             {
                                 // The lock is orphaned.
-                                pThread = (Thread*) -1;
                                 threadId = -1;
                                 osThreadId = (SIZE_T)-1;
                             }
@@ -2210,7 +2209,7 @@ SyncBlock *ObjHeader::GetSyncBlock()
                                 osThreadId = pThread->GetOSThreadId64();
                             }
 
-                            syncBlock->InitState(recursionLevel + 1, pThread, threadId, osThreadId);
+                            syncBlock->InitState(recursionLevel + 1, threadId, osThreadId);
                         }
                     }
                     else if ((bits & BIT_SBLK_IS_HASHCODE) != 0)
@@ -2330,6 +2329,12 @@ void ObjHeader::PulseAll()
 //              AwareLock class implementation (GC-aware locking)
 //
 // ***************************************************************************
+
+PTR_Thread AwareLock::GetHoldingThread()
+{
+    LIMITED_METHOD_CONTRACT;
+    return g_pThinLockThreadIdDispenser->IdToThreadWithValidation(m_HoldingThreadId);
+}
 
 void AwareLock::AllocLockSemEvent()
 {
