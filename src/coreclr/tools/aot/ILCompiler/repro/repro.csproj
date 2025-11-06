@@ -9,11 +9,11 @@
     <Configurations>Debug;Release;Checked</Configurations>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RunAnalyzers>false</RunAnalyzers>
+    <Features>$(Features);runtime-async=on</Features>
+    <NoWarn>$(NoWarn);xUnit1013;CS1998;SYSLIB5007</NoWarn>
   </PropertyGroup>
 
-  <Target Name="GenerateReproProjectResponseFile"
-          AfterTargets="Build"
-          Condition="'$(BuildingInsideVisualStudio)' != 'true'">
+  <Target Name="GenerateReproProjectResponseFile" AfterTargets="Build" Condition="'$(BuildingInsideVisualStudio)' != 'true'">
 
     <ItemGroup>
       <ReproResponseLines Include="$(OutputPath)$(AssemblyName)$(TargetExt)" />
@@ -44,9 +44,6 @@
       <ReproResponseLines Include="--feature:System.StartupHookProvider.IsSupported=false" />
     </ItemGroup>
 
-    <WriteLinesToFile File="$(OutputPath)\compile-with-$(LibrariesConfiguration)-libs.rsp"
-                      Lines="@(ReproResponseLines)"
-                      Overwrite="true"
-                      WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(OutputPath)\compile-with-$(LibrariesConfiguration)-libs.rsp" Lines="@(ReproResponseLines)" Overwrite="true" WriteOnlyWhenDifferent="true" />
   </Target>
 </Project>

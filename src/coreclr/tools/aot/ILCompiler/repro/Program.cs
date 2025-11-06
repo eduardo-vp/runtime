@@ -1,12 +1,25 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
 using System;
+using System.Threading.Tasks;
 
-class Program
+public class Async2Void
 {
-    static void Main()
+    public static void Main()
     {
-        Console.WriteLine("Hello world");
+        var t = AsyncTestEntryPoint(123, 456);
+        t.Wait();
+        Console.WriteLine(t.Result);
+    }
+
+    private static async Task<int> AsyncTestEntryPoint(int x, int y)
+    {
+        int result = await OtherAsync(x, y);
+        return result;
+    }
+
+    private static async Task<int> OtherAsync(int x, int y)
+    {
+        Console.WriteLine(x);
+        Console.WriteLine(y);
+        return x + y;
     }
 }
