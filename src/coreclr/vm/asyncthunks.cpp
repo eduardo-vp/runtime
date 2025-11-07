@@ -133,7 +133,7 @@ void MethodDesc::EmitTaskReturningThunk(MethodDesc* pAsyncOtherVariant, MetaSig&
             }
 
             int token;
-            _ASSERTE(!pAsyncOtherVariant->IsWrapperStub());
+            _ASSERTE(!pAsyncOtherVariant->IsWrapperStub()); // Would it be better to move the assertion to the top of this method?
             if (pAsyncOtherVariant->HasClassOrMethodInstantiation())
             {
                 // For generic code emit generic signatures.
