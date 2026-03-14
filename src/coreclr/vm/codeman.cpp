@@ -319,20 +319,22 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
         toIdx, desiredSpace);
     _ASSERTE((ULONG)toIdx <= desiredSpace);
 
+    T_RUNTIME_FUNCTION* oldPTable = unwindInfo->pTable;
+
     // Unregister the old table
     unwindInfo->UnRegister();
 
     // Swap the internal array (the UnwindInfoTable object itself stays alive)
-    T_RUNTIME_FUNCTION* oldPTable = unwindInfo->pTable;
     unwindInfo->pTable = newPTable;
     unwindInfo->cTableCurCount = toIdx;
     unwindInfo->cTableMaxCount = desiredSpace;
     unwindInfo->cDeletedEntries = 0;
 
-    delete[] oldPTable;
-
     // Re-register with the new array
+    // Note that there is a short time when we are not publishing...
     unwindInfo->Register();
+
+    delete[] oldPTable;
 }
 
 /*****************************************************************************/
