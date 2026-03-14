@@ -238,7 +238,7 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
             // how many RUNTIME_FUNCTION entries are in each chunk we allocate.
             ULONG size = (ULONG) ((rangeEnd - rangeStart) / 128) + 1;
 
-            // To ensure the test the growing logic in debug code make the size much smaller.
+            // To ensure we test the growing logic in debug builds, make the size much smaller.
             INDEBUG(size = size / 4 + 1);
             unwindInfo = (PTR_UnwindInfoTable)new UnwindInfoTable(rangeStart, rangeEnd, size);
             unwindInfo->Register();
