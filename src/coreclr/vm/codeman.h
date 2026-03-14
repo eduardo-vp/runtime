@@ -618,6 +618,7 @@ private:
     UnwindInfoTable(ULONG_PTR rangeStart, ULONG_PTR rangeEnd, ULONG size);
 
 private:
+    Crst                m_lock;           // Per-table lock to reduce contention across code heaps
     PVOID               hHandle;          // OS handle for a published RUNTIME_FUNCTION table
     ULONG_PTR           iRangeStart;      // Start of memory described by this table
     ULONG_PTR           iRangeEnd;        // End of memory described by this table

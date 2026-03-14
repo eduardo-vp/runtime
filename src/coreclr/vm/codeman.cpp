@@ -134,9 +134,9 @@ bool InitUnwindFtns()
 
 /****************************************************************************/
 UnwindInfoTable::UnwindInfoTable(ULONG_PTR rangeStart, ULONG_PTR rangeEnd, ULONG size)
+    : m_lock(CrstUnwindInfoTableLock)
 {
     STANDARD_VM_CONTRACT;
-    _ASSERTE(s_pUnwindInfoTableLock->OwnedByCurrentThread());
     _ASSERTE((rangeEnd - rangeStart) <= 0x7FFFFFFF);
 
     cTableCurCount = 0;
@@ -166,7 +166,6 @@ UnwindInfoTable::~UnwindInfoTable()
 /*****************************************************************************/
 void UnwindInfoTable::Register()
 {
-    _ASSERTE(s_pUnwindInfoTableLock->OwnedByCurrentThread());
     EX_TRY
     {
         hHandle = NULL;
@@ -224,25 +223,33 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
     if (!s_publishingActive)
         return;
 
-    CrstHolder ch(s_pUnwindInfoTableLock);
+    UnwindInfoTable* unwindInfo = VolatileLoad(unwindInfoPtr);
 
-    UnwindInfoTable* unwindInfo = *unwindInfoPtr;
-    // was the original list null, If so lazy initialize.
     if (unwindInfo == NULL)
     {
-        // We can choose the average method size estimate dynamically based on past experience
-        // 128 is the estimated size of an average method, so we can accurately predict
-        // how many RUNTIME_FUNCTION entries are in each chunk we allocate.
+        // Lazy initialize under the global lock.
+        CrstHolder ch(s_pUnwindInfoTableLock);
 
-        ULONG size = (ULONG) ((rangeEnd - rangeStart) / 128) + 1;
+        unwindInfo = VolatileLoad(unwindInfoPtr);
+        if (unwindInfo == NULL)
+        {
+            // We can choose the average method size estimate dynamically based on past experience
+            // 128 is the estimated size of an average method, so we can accurately predict
+            // how many RUNTIME_FUNCTION entries are in each chunk we allocate.
+            ULONG size = (ULONG) ((rangeEnd - rangeStart) / 128) + 1;
 
-        // To ensure the test the growing logic in debug code make the size much smaller.
-        INDEBUG(size = size / 4 + 1);
-        unwindInfo = (PTR_UnwindInfoTable)new UnwindInfoTable(rangeStart, rangeEnd, size);
-        unwindInfo->Register();
-        *unwindInfoPtr = unwindInfo;
+            // To ensure the test the growing logic in debug code make the size much smaller.
+            INDEBUG(size = size / 4 + 1);
+            unwindInfo = (PTR_UnwindInfoTable)new UnwindInfoTable(rangeStart, rangeEnd, size);
+            unwindInfo->Register();
+            VolatileStore(unwindInfoPtr, unwindInfo);
+        }
     }
     _ASSERTE(unwindInfo != NULL);        // If new had failed, we would have thrown OOM
+
+    // From here on we use the per-table lock, so different code heaps don't contend.
+    CrstHolder ch(&unwindInfo->m_lock);
+
     _ASSERTE(unwindInfo->cTableCurCount <= unwindInfo->cTableMaxCount);
     _ASSERTE(unwindInfo->iRangeStart == rangeStart);
     _ASSERTE(unwindInfo->iRangeEnd == rangeEnd);
@@ -271,10 +278,11 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
         }
     }
 
-    // OK we need to rellocate the table and reregister.  First figure out our 'desiredSpace'
-    // We could imagine being much more efficient for 'bulk' updates, but we don't try
-    // because we assume that this is rare and we want to keep the code simple
-
+    // Slow path: we need to allocate a new array and copy the entries over, because either:
+    // 1) We are adding an entry in the middle.
+    // 2) We are adding an entry at the end, but there is no more space in the array.
+    // The UnwindInfoTable object itself is kept alive (preserving its m_lock),
+    // only the pTable array is replaced.
     ULONG usedSpace = unwindInfo->cTableCurCount - unwindInfo->cDeletedEntries;
     ULONG desiredSpace = usedSpace * 5 / 4 + 1;        // Increase by 20%
     // Be more aggressive if we used all of our space;
@@ -285,7 +293,7 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
         unwindInfo->hHandle, unwindInfo->iRangeStart, unwindInfo->iRangeEnd,
         unwindInfo->cTableCurCount, unwindInfo->cTableMaxCount, desiredSpace, data->BeginAddress);
 
-    UnwindInfoTable* newTab = new UnwindInfoTable(unwindInfo->iRangeStart, unwindInfo->iRangeEnd, desiredSpace);
+    T_RUNTIME_FUNCTION* newPTable = new T_RUNTIME_FUNCTION[desiredSpace];
 
     // Copy in the entries, removing deleted entries and adding the new entry wherever it belongs
     int toIdx = 0;
@@ -295,33 +303,36 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
         if (!inserted && data->BeginAddress < unwindInfo->pTable[fromIdx].BeginAddress)
         {
             STRESS_LOG1(LF_JIT, LL_INFO100, "AddToUnwindTable Inserted at MID position 0x%x\n", toIdx);
-            newTab->pTable[toIdx++] = *data;
+            newPTable[toIdx++] = *data;
             inserted = true;
         }
         if (unwindInfo->pTable[fromIdx].UnwindData != 0)	// A 'non-deleted' entry
-            newTab->pTable[toIdx++] = unwindInfo->pTable[fromIdx];
+            newPTable[toIdx++] = unwindInfo->pTable[fromIdx];
     }
     if (!inserted)
     {
         STRESS_LOG1(LF_JIT, LL_INFO100, "AddToUnwindTable Inserted at END position 0x%x\n", toIdx);
-        newTab->pTable[toIdx++] = *data;
+        newPTable[toIdx++] = *data;
     }
-    newTab->cTableCurCount = toIdx;
+
     STRESS_LOG2(LF_JIT, LL_INFO100, "AddToUnwindTable New size 0x%x max 0x%x\n",
-        newTab->cTableCurCount, newTab->cTableMaxCount);
-    _ASSERTE(newTab->cTableCurCount <= newTab->cTableMaxCount);
+        toIdx, desiredSpace);
+    _ASSERTE((ULONG)toIdx <= desiredSpace);
 
     // Unregister the old table
-    *unwindInfoPtr = 0;
     unwindInfo->UnRegister();
 
-    // Note that there is a short time when we are not publishing...
+    // Swap the internal array (the UnwindInfoTable object itself stays alive)
+    T_RUNTIME_FUNCTION* oldPTable = unwindInfo->pTable;
+    unwindInfo->pTable = newPTable;
+    unwindInfo->cTableCurCount = toIdx;
+    unwindInfo->cTableMaxCount = desiredSpace;
+    unwindInfo->cDeletedEntries = 0;
 
-    // Register the new table
-    newTab->Register();
-    *unwindInfoPtr = newTab;
+    delete[] oldPTable;
 
-    delete unwindInfo;
+    // Re-register with the new array
+    unwindInfo->Register();
 }
 
 /*****************************************************************************/
@@ -337,11 +348,12 @@ void UnwindInfoTable::AddToUnwindInfoTable(UnwindInfoTable** unwindInfoPtr, PT_R
 
     if (!s_publishingActive)
         return;
-    CrstHolder ch(s_pUnwindInfoTableLock);
 
-    UnwindInfoTable* unwindInfo = *unwindInfoPtr;
+    UnwindInfoTable* unwindInfo = VolatileLoad(unwindInfoPtr);
     if (unwindInfo != NULL)
     {
+        CrstHolder ch(&unwindInfo->m_lock);
+
         DWORD relativeEntryPoint = (DWORD)(entryPoint - baseAddress);
         STRESS_LOG3(LF_JIT, LL_INFO100, "RemoveFromUnwindInfoTable Removing %p BaseAddress %p rel %x\n",
             entryPoint, baseAddress, relativeEntryPoint);
