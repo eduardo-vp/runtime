@@ -22,7 +22,7 @@ IF "%vsBase%"=="" GOTO :ERROR
 
 "%vswherePath%" -latest -prerelease -products * ^
     -requires Microsoft.VisualStudio.Component.VC.Tools.%toolsSuffix% ^
-    -include packages -format json 2>NUL | findstr /R "Windows1[01]SDK.[0-9]" >NUL 2>NUL
+    -include packages -format json 2>NUL | findstr /R "Windows1[01]SDK" >NUL 2>NUL
 
 IF ERRORLEVEL 1 GOTO :ERROR
 
