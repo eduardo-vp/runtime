@@ -140,6 +140,6 @@ The .NET Foundation licenses this file to you under the MIT license.
       <CppLibCreator>$(_CppToolsDirectory)lib.exe</CppLibCreator>
     </PropertyGroup>
 
-    <Error Condition="'$(_VCVarsAllFound)' == '1'" Text="Platform linker not found. Ensure you have all the required prerequisites documented at https://aka.ms/nativeaot-prerequisites, in particular the Desktop Development for C++ workload in Visual Studio. For ARM64 development also install C++ ARM64 build tools." />
+    <Error Condition="'$(_VCVarsAllFound)' == '1'" Text="Platform linker or Windows SDK not found. Ensure you have all the required prerequisites documented at https://aka.ms/nativeaot-prerequisites, in particular the Desktop Development for C++ workload in Visual Studio. For ARM64 development also install C++ ARM64 build tools." />
   </Target>
 </Project>

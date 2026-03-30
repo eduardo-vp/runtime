@@ -20,6 +20,12 @@ FOR /F "tokens=*" %%i IN (
 
 IF "%vsBase%"=="" GOTO :ERROR
 
+"%vswherePath%" -latest -prerelease -products * ^
+    -requires Microsoft.VisualStudio.Component.VC.Tools.%toolsSuffix% ^
+    -include packages -format json 2>NUL | findstr /R "Windows1[01]SDK.[0-9]" >NUL 2>NUL
+
+IF ERRORLEVEL 1 GOTO :ERROR
+
 IF /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" (
     IF /I "%~1" == "x64"   ( set vcEnvironment=arm64_amd64 )
     IF /I "%~1" == "x86"   ( set vcEnvironment=arm64_x86 )
