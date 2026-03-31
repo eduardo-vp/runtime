@@ -20,8 +20,8 @@ FOR /F "tokens=*" %%i IN (
 
 IF "%vsBase%"=="" GOTO :ERROR
 
-REM Verify Windows SDK is installed (findstr is case-sensitive: matches "SDK." but not "Sdk.")
-REM We need to distinguish between the actual SDK and the SDK performance tool kit (which has "Sdk" in the name)
+REM Verify Windows SDK is installed (findstr is case-sensitive: matches "Windows.*SDK" but not "Windows.*Sdk")
+REM We need to distinguish between the actual Windows SDK and similarly named components (which use "Sdk" in the name)
 "%vswherePath%" -latest -prerelease -products * ^
     -requires Microsoft.VisualStudio.Component.VC.Tools.%toolsSuffix% ^
     -include packages -format json | findstr /R "Windows.*SDK" >NUL 2>NUL
