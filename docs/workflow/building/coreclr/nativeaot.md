@@ -95,7 +95,10 @@ If you haven't built the tests yet, run `src\tests\build.cmd nativeaot [Debug|Re
 
 To run all the tests that got built, run `src\tests\run.cmd runnativeaottests [Debug|Release]` on Windows, or `src/tests/run.sh --runnativeaottests [Debug|Release]` on Linux. The `Debug`/`Release` flag should match the flag that was passed to `build.cmd` in the previous step.
 
-To build an individual test, follow the instructions for compiling an individual test project located in [Building an Individual Test](/docs/workflow/testing/coreclr/testing.md#building-an-individual-test), but add `/t:BuildNativeAot /p:TestBuildMode=nativeaot` to the build command. If using `build[.cmd|.sh]`, add `nativeaot` to the script arguments as well (i.e. on Windows `.\src\tests\build.cmd nativeaot test ...`, on Linux `./src/tests/build.sh -nativeaot test ...`).
+To build an individual test, follow the instructions for compiling an individual test project located in [Building an Individual Test](/docs/workflow/testing/coreclr/testing.md#building-an-individual-test) with additional aruments:
+
+ * For the build build[.cmd|.sh] script add `nativeaot`/`-nativeaot` command line parameter such as `.\src\tests\build.cmd nativeaot test ...` or `./src/tests/build.sh -nativeaot test ...`
+ * For the `dotnet build` workflow, add  `-t:BuildNativeAot -p:TestBuildMode=nativeaot`
 
 To run an individual test (after it was built), navigate to the `artifacts\tests\coreclr\[windows|linux|osx[.x64.[Debug|Release]\$path_to_test` directory. `$path_to_test` matches the subtree of `src\tests`. You should see a `[.cmd|.sh]` file there. This file is a script that will compile and launch the individual test for you. Before invoking the script, set the following environment variables:
 
