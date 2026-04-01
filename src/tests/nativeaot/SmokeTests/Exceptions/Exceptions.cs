@@ -28,7 +28,7 @@ public class BringUpTest
     {
 
         // This test also doubles as server GC test
-        if (!System.Runtime.GCSettings.IsServerGC)
+        if (Environment.ProcessorCount > 1 && !System.Runtime.GCSettings.IsServerGC)
             return 42;
 
         if (string.Empty.Length > 0)
