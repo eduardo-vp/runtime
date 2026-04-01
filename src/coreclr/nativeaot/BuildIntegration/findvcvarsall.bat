@@ -15,17 +15,11 @@ IF /I "%~1"=="arm64" SET toolsSuffix=ARM64
 FOR /F "tokens=*" %%i IN (
     '"%vswherePath%" -latest -prerelease -products * ^
     -requires Microsoft.VisualStudio.Component.VC.Tools.%toolsSuffix% ^
+    -requires Microsoft.VisualStudio.Component.Windows*SDK* ^
     -property installationPath'
 ) DO SET vsBase=%%i
 
 IF "%vsBase%"=="" GOTO :ERROR
-
-REM Verify Windows SDK is installed (findstr is case-sensitive: matches "Windows.*SDK" but not "Windows.*Sdk")
-REM We need to distinguish between the actual Windows SDK and similarly named components (which use "Sdk" in the name)
-"%vswherePath%" -latest -prerelease -products * ^
-    -requires Microsoft.VisualStudio.Component.VC.Tools.%toolsSuffix% ^
-    -include packages -format json | findstr /R "Windows.*SDK" >NUL 2>NUL
-IF ERRORLEVEL 1 GOTO :ERROR
 
 IF /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" (
     IF /I "%~1" == "x64"   ( set vcEnvironment=arm64_amd64 )
