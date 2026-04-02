@@ -649,6 +649,7 @@ public class ArrayMarshal
     #endregion
 
     [Fact]
+    [ActiveIssue("https://github.com/dotnet/runtime/issues/126467", typeof(Utilities), nameof(Utilities.IsNativeAot))]
     public static void TestMultidimensional()
     {
         Console.WriteLine("================== [Get_Multidimensional_Array_Sum] ============");
