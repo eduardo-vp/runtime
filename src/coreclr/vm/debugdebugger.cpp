@@ -179,7 +179,7 @@ extern "C" void QCALLTYPE DebugDebugger_Log(INT32 Level, PCWSTR pwzModule, PCWST
 #endif // DEBUGGING_SUPPORTED
 }
 
-bool DebugStackTrace::ExtractContinuationData(MethodTable* pContinuationMT, SArray<ResumeData>* pContinuationResumeList)
+bool DebugStackTrace::ExtractContinuationData(SArray<ResumeData>* pContinuationResumeList)
 {
     CONTRACTL
     {
@@ -189,9 +189,14 @@ bool DebugStackTrace::ExtractContinuationData(MethodTable* pContinuationMT, SArr
     }
     CONTRACTL_END;
 
-    // Use the CoreLib binder to get AsyncDispatcherInfo and its t_current field.
+    // Use the CoreLib binder to get AsyncDispatcherInfo and its fields.
     FieldDesc* pTCurrentField = CoreLibBinder::GetField(FIELD__ASYNC_DISPATCHER_INFO__T_CURRENT);
     if (pTCurrentField == NULL)
+        return false;
+
+    FieldDesc* pNextField = CoreLibBinder::GetField(FIELD__ASYNC_DISPATCHER_INFO__NEXT);
+    FieldDesc* pNextContinuationField = CoreLibBinder::GetField(FIELD__ASYNC_DISPATCHER_INFO__NEXT_CONTINUATION);
+    if (pNextField == NULL || pNextContinuationField == NULL)
         return false;
 
     MethodTable* pDispatcherInfoMT = CoreLibBinder::GetClass(CLASS__ASYNC_DISPATCHER_INFO);
@@ -205,15 +210,9 @@ bool DebugStackTrace::ExtractContinuationData(MethodTable* pContinuationMT, SArr
     if (base == NULL)
         return false;
 
-    // AsyncDispatcherInfo is a ref struct with explicit layout:
-    //   [0]               AsyncDispatcherInfo* Next             (unmanaged pointer)
-    //   [sizeof(void*)]   Continuation?        NextContinuation (managed reference)
-    //   [2*sizeof(void*)] Task?                CurrentTask      (managed reference)
-    struct DispatcherInfoLayout
-    {
-        void*     pNext;
-        OBJECTREF pContinuation;
-    };
+    // Field offsets into the AsyncDispatcherInfo ref struct, verified by the CoreLib binder.
+    DWORD nextOffset = pNextField->GetOffset();
+    DWORD continuationOffset = pNextContinuationField->GetOffset();
 
     // ResumeInfo is an unmanaged struct:
     //   [0]             delegate*  Resume       (function pointer)
@@ -225,7 +224,7 @@ bool DebugStackTrace::ExtractContinuationData(MethodTable* pContinuationMT, SArr
     };
 
     SIZE_T offset = pTCurrentField->GetOffset();
-    DispatcherInfoLayout** ppDispatcherInfo = (DispatcherInfoLayout**)((PTR_BYTE)base + (DWORD)offset);
+    PTR_BYTE* ppDispatcherInfo = (PTR_BYTE*)((PTR_BYTE)base + (DWORD)offset);
     if (ppDispatcherInfo == NULL || *ppDispatcherInfo == NULL)
         return false;
 
@@ -238,16 +237,18 @@ bool DebugStackTrace::ExtractContinuationData(MethodTable* pContinuationMT, SArr
     gc.pNext = NULL;
     GCPROTECT_BEGIN(gc)
     {
-        DispatcherInfoLayout* pDispatcherInfo = *ppDispatcherInfo;
+        PTR_BYTE pDispatcherInfo = *ppDispatcherInfo;
         while (pDispatcherInfo != NULL)
         {
-            if (pDispatcherInfo->pContinuation == NULL)
+            // Read NextContinuation field using binder-verified offset.
+            OBJECTREF pContinuationRef = ObjectToOBJECTREF(*(Object**)(pDispatcherInfo + continuationOffset));
+            if (pContinuationRef == NULL)
             {
-                pDispatcherInfo = (DispatcherInfoLayout*)pDispatcherInfo->pNext;
+                pDispatcherInfo = *(PTR_BYTE*)(pDispatcherInfo + nextOffset);
                 continue;
             }
 
-            gc.continuation = (CONTINUATIONREF)(Object*)OBJECTREFToObject(pDispatcherInfo->pContinuation);
+            gc.continuation = (CONTINUATIONREF)(Object*)OBJECTREFToObject(pContinuationRef);
             while (gc.continuation != NULL)
             {
                 // Use ContinuationObject accessors — these match the binder-verified layout.
@@ -275,7 +276,7 @@ bool DebugStackTrace::ExtractContinuationData(MethodTable* pContinuationMT, SArr
                 gc.continuation = gc.pNext;
             }
 
-            pDispatcherInfo = (DispatcherInfoLayout*)pDispatcherInfo->pNext;
+            pDispatcherInfo = *(PTR_BYTE*)(pDispatcherInfo + nextOffset);
         }
     }
     GCPROTECT_END();
@@ -318,7 +319,7 @@ static StackWalkAction GetStackFramesCallback(CrawlFrame* pCf, VOID* data)
             !strcmp(pFunc->GetName(), "DispatchContinuations"))
         {
             // capture async v2 continuations
-            DebugStackTrace::ExtractContinuationData(pFunc->GetMethodTable(), &pData->continuationResumeList);
+            DebugStackTrace::ExtractContinuationData(&pData->continuationResumeList);
         }
     }
 
