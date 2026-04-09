@@ -72,11 +72,82 @@ namespace ILCompiler
         }
     }
 
+    /// <summary>
+    /// A special void-returning async variant that calls the T returning async variant and drops the result.
+    /// Used when a base class method returns Task and the derived class overrides it with Task&lt;T&gt;.
+    /// The base's async variant is void-returning, while the derived's async variant is T-returning.
+    /// This thunk bridges the mismatch.
+    /// </summary>
+    public sealed class ReturnDroppingAsyncMethodVariant : MethodDelegator
+    {
+        private readonly AsyncMethodVariant _asyncVariant;
+        private MethodSignature _voidSignature;
+
+        public ReturnDroppingAsyncMethodVariant(AsyncMethodVariant asyncVariant)
+            : base(asyncVariant)
+        {
+            Debug.Assert(!asyncVariant.Signature.ReturnType.IsVoid);
+            _asyncVariant = asyncVariant;
+        }
+
+        public AsyncMethodVariant AsyncVariantTarget => _asyncVariant;
+
+        public override MethodSignature Signature
+        {
+            get
+            {
+                return _voidSignature ?? InitializeSignature();
+            }
+        }
+
+        private MethodSignature InitializeSignature()
+        {
+            MethodSignatureBuilder builder = new MethodSignatureBuilder(_asyncVariant.Signature);
+            builder.ReturnType = Context.GetWellKnownType(WellKnownType.Void);
+            return (_voidSignature = builder.ToSignature());
+        }
+
+        public override MethodDesc GetCanonMethodTarget(CanonicalFormKind kind)
+        {
+            return this;
+        }
+
+        public override MethodDesc GetMethodDefinition()
+        {
+            return this;
+        }
+
+        public override MethodDesc GetTypicalMethodDefinition()
+        {
+            return this;
+        }
+
+        public override MethodDesc InstantiateSignature(Instantiation typeInstantiation, Instantiation methodInstantiation)
+        {
+            return this;
+        }
+
+        public override string ToString() => $"Return-dropping async variant: " + _asyncVariant.ToString();
+
+        protected override int ClassCode => unchecked((int)0xa3c2b7e5u);
+
+        protected override int CompareToImpl(MethodDesc other, TypeSystemComparer comparer)
+        {
+            var rdOther = (ReturnDroppingAsyncMethodVariant)other;
+            return comparer.Compare(_asyncVariant, rdOther._asyncVariant);
+        }
+    }
+
     public static class AsyncMethodVariantExtensions
     {
         public static bool IsAsyncVariant(this MethodDesc method)
         {
             return method.GetTypicalMethodDefinition() is AsyncMethodVariant;
+        }
+
+        public static bool IsReturnDroppingAsyncVariant(this MethodDesc method)
+        {
+            return method.GetTypicalMethodDefinition() is ReturnDroppingAsyncMethodVariant;
         }
 
         public static bool IsAsyncThunk(this MethodDesc method)
