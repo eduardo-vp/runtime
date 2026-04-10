@@ -78,12 +78,12 @@ namespace ILCompiler
     /// The base's async variant is void-returning, while the derived's async variant is T-returning.
     /// This thunk bridges the mismatch.
     /// </summary>
-    public sealed class ReturnDroppingAsyncMethodVariant : MethodDelegator
+    public sealed class ReturnDroppingAsyncThunk : MethodDelegator
     {
         private readonly AsyncMethodVariant _asyncVariant;
         private MethodSignature _voidSignature;
 
-        public ReturnDroppingAsyncMethodVariant(AsyncMethodVariant asyncVariant)
+        public ReturnDroppingAsyncThunk(AsyncMethodVariant asyncVariant)
             : base(asyncVariant)
         {
             Debug.Assert(!asyncVariant.Signature.ReturnType.IsVoid);
@@ -133,7 +133,7 @@ namespace ILCompiler
 
         protected override int CompareToImpl(MethodDesc other, TypeSystemComparer comparer)
         {
-            var rdOther = (ReturnDroppingAsyncMethodVariant)other;
+            var rdOther = (ReturnDroppingAsyncThunk)other;
             return comparer.Compare(_asyncVariant, rdOther._asyncVariant);
         }
     }
@@ -145,14 +145,14 @@ namespace ILCompiler
             return method.GetTypicalMethodDefinition() is AsyncMethodVariant;
         }
 
-        public static bool IsReturnDroppingAsyncVariant(this MethodDesc method)
+        public static bool IsReturnDroppingAsyncThunk(this MethodDesc method)
         {
-            return method.GetTypicalMethodDefinition() is ReturnDroppingAsyncMethodVariant;
+            return method.GetTypicalMethodDefinition() is ReturnDroppingAsyncThunk;
         }
 
         public static bool IsAsyncThunk(this MethodDesc method)
         {
-            return (method.IsAsyncVariant() ^ method.IsAsync) || method.IsReturnDroppingAsyncVariant();
+            return (method.IsAsyncVariant() ^ method.IsAsync) || method.IsReturnDroppingAsyncThunk();
         }
 
         public static bool IsCompilerGeneratedILBodyForAsync(this MethodDesc method)

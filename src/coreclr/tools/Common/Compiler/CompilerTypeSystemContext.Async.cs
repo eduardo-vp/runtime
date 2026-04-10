@@ -239,14 +239,14 @@ namespace ILCompiler
             return result;
         }
 
-        private sealed class ReturnDroppingHashtable : LockFreeReaderHashtable<AsyncMethodVariant, ReturnDroppingAsyncMethodVariant>
+        private sealed class ReturnDroppingHashtable : LockFreeReaderHashtable<AsyncMethodVariant, ReturnDroppingAsyncThunk>
         {
             protected override int GetKeyHashCode(AsyncMethodVariant key) => key.GetHashCode();
-            protected override int GetValueHashCode(ReturnDroppingAsyncMethodVariant value) => value.AsyncVariantTarget.GetHashCode();
-            protected override bool CompareKeyToValue(AsyncMethodVariant key, ReturnDroppingAsyncMethodVariant value) => key == value.AsyncVariantTarget;
-            protected override bool CompareValueToValue(ReturnDroppingAsyncMethodVariant value1, ReturnDroppingAsyncMethodVariant value2)
+            protected override int GetValueHashCode(ReturnDroppingAsyncThunk value) => value.AsyncVariantTarget.GetHashCode();
+            protected override bool CompareKeyToValue(AsyncMethodVariant key, ReturnDroppingAsyncThunk value) => key == value.AsyncVariantTarget;
+            protected override bool CompareValueToValue(ReturnDroppingAsyncThunk value1, ReturnDroppingAsyncThunk value2)
                 => value1.AsyncVariantTarget == value2.AsyncVariantTarget;
-            protected override ReturnDroppingAsyncMethodVariant CreateValueFromKey(AsyncMethodVariant key) => new ReturnDroppingAsyncMethodVariant(key);
+            protected override ReturnDroppingAsyncThunk CreateValueFromKey(AsyncMethodVariant key) => new ReturnDroppingAsyncThunk(key);
         }
         private ReturnDroppingHashtable _returnDroppingHashtable = new ReturnDroppingHashtable();
 
