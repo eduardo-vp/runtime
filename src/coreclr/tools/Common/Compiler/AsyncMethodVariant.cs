@@ -152,7 +152,7 @@ namespace ILCompiler
 
         public static bool IsAsyncThunk(this MethodDesc method)
         {
-            return method.IsAsyncVariant() ^ method.IsAsync;
+            return (method.IsAsyncVariant() ^ method.IsAsync) || method.IsReturnDroppingAsyncVariant();
         }
 
         public static bool IsCompilerGeneratedILBodyForAsync(this MethodDesc method)
