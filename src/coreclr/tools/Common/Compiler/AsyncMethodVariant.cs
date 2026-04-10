@@ -78,7 +78,7 @@ namespace ILCompiler
     /// The base's async variant is void-returning, while the derived's async variant is T-returning.
     /// This thunk bridges the mismatch.
     /// </summary>
-    public sealed class ReturnDroppingAsyncThunk : MethodDelegator
+    public partial class ReturnDroppingAsyncThunk : MethodDelegator
     {
         private readonly AsyncMethodVariant _asyncVariant;
         private MethodSignature _voidSignature;

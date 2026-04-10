@@ -421,7 +421,7 @@ namespace Internal.IL.Stubs
                 codestream.EmitLdArg(localArg++);
             }
 
-            codestream.Emit(ILOpcode.callvirt, emitter.NewToken(asyncVariantTarget));
+            codestream.Emit(ILOpcode.call, emitter.NewToken(asyncVariantTarget));
             codestream.Emit(ILOpcode.pop);
             codestream.Emit(ILOpcode.ret);
 
