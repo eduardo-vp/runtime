@@ -355,6 +355,11 @@ namespace Internal.IL
                 return ArrayMethodILEmitter.EmitIL((ArrayMethod)method);
             }
             else
+            if (method is ReturnDroppingAsyncMethodVariant returnDroppingVariant)
+            {
+                return AsyncThunkILEmitter.EmitReturnDroppingThunk(returnDroppingVariant, returnDroppingVariant.AsyncVariantTarget);
+            }
+            else
             if (method is AsyncMethodVariant asyncVariantImpl)
             {
                 if (asyncVariantImpl.IsAsync)
