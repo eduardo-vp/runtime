@@ -176,3 +176,35 @@ namespace AsyncMicro
         }
     }
 }
+
+namespace CovariantReturnWithoutRuntimeAsync
+{
+    public class Program
+    {
+        [Fact]
+        public static void TestCovariantReturnWithoutRuntimeAsync()
+        {
+            CallInstance(new Derived()).GetAwaiter().GetResult();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static async Task CallInstance(Base b) => await b.InstanceMethod();
+
+        public class Base
+        {
+            public virtual async Task InstanceMethod()
+            {
+            }
+        }
+
+        public class Derived : Base
+        {
+            [RuntimeAsyncMethodGenerationAttribute(false)]
+            public override async Task<int> InstanceMethod()
+            {
+                await Task.Yield();
+                return 42;
+            }
+        }
+    }
+}

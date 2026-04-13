@@ -127,7 +127,7 @@ namespace ILCompiler
             return this;
         }
 
-        public override string ToString() => $"Return-dropping async variant: " + _asyncVariant.ToString();
+        public override string ToString() => $"Return-dropping async variant: " + _asyncVariant.Target.ToString();
 
         protected override int ClassCode => unchecked((int)0xa3c2b7e5u);
 

@@ -17,7 +17,7 @@ namespace ILCompiler
 
     public partial class ReturnDroppingAsyncThunk : MethodDelegator, IPrefixMangledMethod
     {
-        MethodDesc IPrefixMangledMethod.BaseMethod => _asyncVariant;
+        MethodDesc IPrefixMangledMethod.BaseMethod => _asyncVariant.Target;
 
         ReadOnlySpan<byte> IPrefixMangledMethod.Prefix => "ReturnDroppingAsync"u8;
     }

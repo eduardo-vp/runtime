@@ -409,7 +409,7 @@ namespace Internal.IL.Stubs
 
             // Implement IL that is effectively the following:
             // {
-            //    this.other(arg); // CALLVIRT
+            //    this.other(arg);
             //    return;
             // }
 
@@ -421,6 +421,9 @@ namespace Internal.IL.Stubs
                 codestream.EmitLdArg(localArg++);
             }
 
+            // Use 'call' not 'callvirt': in NativeAOT the target of this thunk is resolved
+            // per type at compile time, so there is no need to redispatch through the vtable.
+            // CoreCLR uses callvirt because thunks can be inherited by subtypes at runtime.
             codestream.Emit(ILOpcode.call, emitter.NewToken(asyncVariantTarget));
             codestream.Emit(ILOpcode.pop);
             codestream.Emit(ILOpcode.ret);
