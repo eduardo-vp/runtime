@@ -304,7 +304,7 @@ static StackWalkAction GetStackFramesCallback(CrawlFrame* pCf, VOID* data)
     {
         if (pFunc->HasSameMethodDefAs(CoreLibBinder::GetMethod(METHOD__RUNTIME_ASYNC_TASK__DISPATCH_CONTINUATIONS)))
         {
-            // capture async v2 continuations
+            // capture runtime async continuations
             DebugStackTrace::ExtractContinuationData(&pData->continuationResumeList);
         }
         else
@@ -367,7 +367,7 @@ static StackWalkAction GetStackFramesCallback(CrawlFrame* pCf, VOID* data)
     }
     else
     {
-        // inject async v2 continuations if any
+        // inject runtime async continuations if any
         for (UINT32 i = 0; i < pData->continuationResumeList.GetCount() && (pData->NumFramesRequested == 0 || pData->cElements < pData->NumFramesRequested); i++)
         {
             DebugStackTrace::ResumeData& resumeData = pData->continuationResumeList[i];
