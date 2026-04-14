@@ -181,10 +181,14 @@ namespace CovariantReturnWithoutRuntimeAsync
 {
     public class Program
     {
+        internal static int Result;
+
         [Fact]
         public static void TestCovariantReturnWithoutRuntimeAsync()
         {
+            Result = 0;
             CallInstance(new Derived()).GetAwaiter().GetResult();
+            Assert.Equal(42, Result);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -203,6 +207,7 @@ namespace CovariantReturnWithoutRuntimeAsync
             public override async Task<int> InstanceMethod()
             {
                 await Task.Yield();
+                Result = 42;
                 return 42;
             }
         }
