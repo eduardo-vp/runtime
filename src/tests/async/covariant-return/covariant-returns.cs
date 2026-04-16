@@ -213,3 +213,42 @@ namespace CovariantReturnWithoutRuntimeAsync
         }
     }
 }
+
+namespace GenericVirtualMethod
+{
+    public class Program
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static async Task CallInstance(Base b) => await b.InstanceMethod<object>();
+
+        [Fact]
+        public static void TestGenericVirtualMethod()
+        {
+            CallInstance(new Derived()).GetAwaiter().GetResult();
+        }
+
+        public class Base
+        {
+            public virtual async Task InstanceMethod<T>()
+            {
+            }
+        }
+
+        public class Mid : Base
+        {
+            public override async Task<int> InstanceMethod<T>()
+            {
+                throw new Exception();
+            }
+        }
+
+        public class Derived : Mid
+        {
+            public override async Task<int> InstanceMethod<T>()
+            {
+                await Task.Yield();
+                return 42;
+            }
+        }
+    }
+}

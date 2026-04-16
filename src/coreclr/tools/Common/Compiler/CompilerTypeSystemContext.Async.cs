@@ -218,6 +218,25 @@ namespace ILCompiler
         }
         private AsyncVariantHashtable _asyncVariantHashtable = new AsyncVariantHashtable();
 
+        public MethodDesc GetTargetOfReturnDroppingAsyncThunk(MethodDesc returnDroppingMethod)
+        {
+            var thunkDefinition = (ReturnDroppingAsyncThunk)returnDroppingMethod.GetTypicalMethodDefinition();
+            MethodDesc result = thunkDefinition.AsyncVariantTarget.Target;
+
+            // If there are generics involved, we need to specialize
+            if (returnDroppingMethod != thunkDefinition)
+            {
+                TypeDesc owningType = returnDroppingMethod.OwningType;
+                if (owningType != thunkDefinition.OwningType)
+                    result = GetMethodForInstantiatedType(result, (InstantiatedType)owningType);
+
+                if (returnDroppingMethod.HasInstantiation && !returnDroppingMethod.IsMethodDefinition)
+                    result = GetInstantiatedMethod(result, returnDroppingMethod.Instantiation);
+            }
+
+            return result;
+        }
+
         public MethodDesc GetReturnDroppingAsyncVariantMethod(MethodDesc asyncVariantMethod)
         {
             Debug.Assert(asyncVariantMethod.IsAsyncVariant());
