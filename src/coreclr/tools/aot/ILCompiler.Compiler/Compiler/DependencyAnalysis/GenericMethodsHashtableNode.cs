@@ -114,11 +114,6 @@ namespace ILCompiler.DependencyAnalysis
         private static MethodDesc GetMethodForMetadata(MethodDesc method, out bool isAsyncVariant)
         {
             MethodDesc result = method.GetTypicalMethodDefinition();
-            if (result is ReturnDroppingAsyncThunk rdThunk)
-            {
-                isAsyncVariant = true;
-                return rdThunk.AsyncVariantTarget.Target;
-            }
             if (result is AsyncMethodVariant asyncVariant)
             {
                 isAsyncVariant = true;

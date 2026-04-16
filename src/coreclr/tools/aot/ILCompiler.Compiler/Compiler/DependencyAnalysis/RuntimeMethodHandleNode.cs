@@ -77,12 +77,7 @@ namespace ILCompiler.DependencyAnalysis
             int flags = 0;
 
             MethodDesc targetMethodForMetadata = _targetMethod.GetTypicalMethodDefinition();
-            if (targetMethodForMetadata.IsReturnDroppingAsyncThunk())
-            {
-                targetMethodForMetadata = factory.TypeSystemContext.GetTargetOfReturnDroppingAsyncThunk(targetMethodForMetadata);
-                flags |= RuntimeMethodHandleConstants.IsAsyncVariant;
-            }
-            else if (targetMethodForMetadata.IsAsyncVariant())
+            if (targetMethodForMetadata.IsAsyncVariant())
             {
                 targetMethodForMetadata = factory.TypeSystemContext.GetTargetOfAsyncVariantMethod(targetMethodForMetadata);
                 flags |= RuntimeMethodHandleConstants.IsAsyncVariant;
