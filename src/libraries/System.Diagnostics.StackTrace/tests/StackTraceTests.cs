@@ -751,7 +751,7 @@ namespace System.Diagnostics.Tests
         public void EnvironmentStackTrace_AsyncContinuationStitching()
         {
             var options = new RemoteInvokeOptions();
-            options.StartInfo.EnvironmentVariables["DOTNET_HideAsyncDispatchFrames"] = "1";
+            options.StartInfo.EnvironmentVariables["DOTNET_StackTraceAsyncBehavior"] = "1";
             RemoteExecutor.Invoke(static () =>
             {
                 if (!PlatformDetection.IsRuntimeAsyncSupported)
@@ -793,7 +793,7 @@ namespace System.Diagnostics.Tests
         public void EnvironmentStackTrace_AsyncFrameHiding_DefaultOn()
         {
             var options = new RemoteInvokeOptions();
-            options.StartInfo.EnvironmentVariables["DOTNET_HideAsyncDispatchFrames"] = "1";
+            options.StartInfo.EnvironmentVariables["DOTNET_StackTraceAsyncBehavior"] = "1";
             RemoteExecutor.Invoke(static () =>
             {
                 if (!PlatformDetection.IsRuntimeAsyncSupported)
