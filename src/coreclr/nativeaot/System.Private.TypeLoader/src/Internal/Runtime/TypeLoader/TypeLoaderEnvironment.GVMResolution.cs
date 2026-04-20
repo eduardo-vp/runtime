@@ -311,7 +311,11 @@ namespace Internal.Runtime.TypeLoader
                                     Debug.Assert(interfaceImplType != null);
                                 }
 
-                                return (InstantiatedMethod)context.ResolveGenericMethodInstantiation(false, slotMethod.AsyncVariant, interfaceImplType, targetMethodNameAndSignature, slotMethod.Instantiation);
+                                bool returnDroppingAsyncThunk = slotMethod.AsyncVariant
+                                    && !slotMethod.NameAndSignature.Equals(targetMethodNameAndSignature);
+                                bool asyncVariant = slotMethod.AsyncVariant && !returnDroppingAsyncThunk;
+
+                                return (InstantiatedMethod)context.ResolveGenericMethodInstantiation(false, asyncVariant, returnDroppingAsyncThunk, interfaceImplType, targetMethodNameAndSignature, slotMethod.Instantiation);
                             }
                         }
                     }
@@ -502,7 +506,12 @@ namespace Internal.Runtime.TypeLoader
                     Debug.Assert(targetMethodNameAndSignature != null);
 
                     TypeSystemContext context = slotMethod.Context;
-                    return (InstantiatedMethod)context.ResolveGenericMethodInstantiation(false, slotMethod.AsyncVariant, targetType, targetMethodNameAndSignature, slotMethod.Instantiation);
+
+                    bool returnDroppingAsyncThunk = slotMethod.AsyncVariant
+                        && !parsedCallingNameAndSignature.Equals(targetMethodNameAndSignature);
+                    bool asyncVariant = slotMethod.AsyncVariant && !returnDroppingAsyncThunk;
+
+                    return (InstantiatedMethod)context.ResolveGenericMethodInstantiation(false, asyncVariant, returnDroppingAsyncThunk, targetType, targetMethodNameAndSignature, slotMethod.Instantiation);
                 }
             }
 
