@@ -61,10 +61,18 @@ namespace ILCompiler
         internal IReadOnlyDictionary<string, bool> FeatureSwitches { get; }
 
         private readonly HashSet<ModuleDesc> _rootEntireAssembliesExaminedModules = new HashSet<ModuleDesc>();
+        private readonly HashSet<(EcmaModule, PropertyDefinitionHandle)> _propertyCustomAttributesProcessed = new();
+        private readonly HashSet<(EcmaModule, EventDefinitionHandle)> _eventCustomAttributesProcessed = new();
 
         private readonly HashSet<string> _rootEntireAssembliesModules;
         private readonly HashSet<string> _trimmedAssemblies;
         private readonly List<string> _satelliteAssemblyFiles;
+
+        internal bool TryRegisterPropertyCustomAttributesProcessed(EcmaModule module, PropertyDefinitionHandle handle)
+            => _propertyCustomAttributesProcessed.Add((module, handle));
+
+        internal bool TryRegisterEventCustomAttributesProcessed(EcmaModule module, EventDefinitionHandle handle)
+            => _eventCustomAttributesProcessed.Add((module, handle));
 
         internal Logger Logger { get; }
 

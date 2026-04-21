@@ -65,6 +65,7 @@ namespace ILCompiler.DependencyAnalysis
             if ((methodDef.Attributes & MethodAttributes.SpecialName) != 0)
             {
                 TypeDefinition declaringType = reader.GetTypeDefinition(methodDef.GetDeclaringType());
+                var mdManager = (UsageBasedMetadataManager)factory.MetadataManager;
 
                 foreach (PropertyDefinitionHandle propertyHandle in declaringType.GetProperties())
                 {
@@ -72,7 +73,11 @@ namespace ILCompiler.DependencyAnalysis
                     PropertyAccessors accessors = property.GetAccessors();
 
                     if (accessors.Getter == methodHandle || accessors.Setter == methodHandle)
-                        AddDependenciesDueToCustomAttributes(ref dependencies, propertyCondition, factory, method.Module, property.GetCustomAttributes(), new PropertyPseudoDesc(method.OwningType, propertyHandle));
+                    {
+                        // Avoid analyzing the same custom attributes (and producing the same diagnostics) twice.
+                        if (mdManager.TryRegisterPropertyCustomAttributesProcessed(method.Module, propertyHandle))
+                            AddDependenciesDueToCustomAttributes(ref dependencies, propertyCondition, factory, method.Module, property.GetCustomAttributes(), new PropertyPseudoDesc(method.OwningType, propertyHandle));
+                    }
                 }
 
                 object eventCondition = GetMetadataApiDependency(factory, "Event"u8);
@@ -82,7 +87,10 @@ namespace ILCompiler.DependencyAnalysis
                     EventAccessors accessors = @event.GetAccessors();
 
                     if (accessors.Adder == methodHandle || accessors.Remover == methodHandle || accessors.Raiser == methodHandle)
-                        AddDependenciesDueToCustomAttributes(ref dependencies, eventCondition, factory, method.Module, @event.GetCustomAttributes(), new EventPseudoDesc(method.OwningType, eventHandle));
+                    {
+                        if (mdManager.TryRegisterEventCustomAttributesProcessed(method.Module, eventHandle))
+                            AddDependenciesDueToCustomAttributes(ref dependencies, eventCondition, factory, method.Module, @event.GetCustomAttributes(), new EventPseudoDesc(method.OwningType, eventHandle));
+                    }
                 }
             }
         }
