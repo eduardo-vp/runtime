@@ -404,13 +404,16 @@ namespace System.Net.Sockets.Tests
         {
             using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
-                var list = new List<Socket> { s };
-
                 // should be writable
+                var list = new List<Socket> { s };
                 Socket.Select(null, list, null, Timeout.InfiniteTimeSpan);
+                Assert.Equal(new[] { s }, list);
+
                 Socket.Select(null, list, null, -1);
-                s.Poll(Timeout.InfiniteTimeSpan, SelectMode.SelectWrite);
-                s.Poll(-1, SelectMode.SelectWrite);
+                Assert.Equal(new[] { s }, list);
+
+                Assert.True(s.Poll(Timeout.InfiniteTimeSpan, SelectMode.SelectWrite));
+                Assert.True(s.Poll(-1, SelectMode.SelectWrite));
             }
         }
 
