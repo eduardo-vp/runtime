@@ -222,7 +222,9 @@ namespace GenericVirtualMethod
         public static async Task CallInstance(Base b) => await b.InstanceMethod<object>();
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static async Task CallInstanceValueType(Base b) => await b.InstanceMethod<int>();
+
         [Fact]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/127197")]
         public static void TestGenericVirtualMethod()
         {
             CallInstance(new Derived()).GetAwaiter().GetResult();
