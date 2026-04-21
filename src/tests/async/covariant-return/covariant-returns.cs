@@ -224,7 +224,7 @@ namespace GenericVirtualMethod
         public static async Task CallInstanceValueType(Base b) => await b.InstanceMethod<int>();
 
         [Fact]
-        [ActiveIssue("https://github.com/dotnet/runtime/issues/127197")]
+        [ActiveIssue("https://github.com/dotnet/runtime/issues/127197", typeof(TestLibrary.Utilities), nameof(TestLibrary.Utilities.IsNotNativeAot))]
         public static void TestGenericVirtualMethod()
         {
             CallInstance(new Derived()).GetAwaiter().GetResult();
@@ -251,6 +251,47 @@ namespace GenericVirtualMethod
                 await Task.Yield();
                 return result;
             }
+        }
+    }
+}
+
+namespace AsyncInterfaceGenericMethod
+{
+    public class Program
+    {
+        interface IFoo
+        {
+            Task<int> AsyncInterfaceMethod<T>();
+        }
+
+        class Foo : IFoo
+        {
+            async Task<int> IFoo.AsyncInterfaceMethod<T>()
+            {
+                await Task.Yield();
+                return typeof(T).FullName.Length;
+            }
+        }
+
+        static async Task Run()
+        {
+            IFoo f = new Foo();
+            int x = await f.AsyncInterfaceMethod<object>();
+            Assert.Equal(typeof(object).FullName.Length, x);
+        }
+
+        static async Task RunValueType()
+        {
+            IFoo f = new Foo();
+            int x = await f.AsyncInterfaceMethod<int>();
+            Assert.Equal(typeof(int).FullName.Length, x);
+        }
+
+        [Fact]
+        public static void TestAsyncInterfaceGenericMethod()
+        {
+            Run().GetAwaiter().GetResult();
+            RunValueType().GetAwaiter().GetResult();
         }
     }
 }

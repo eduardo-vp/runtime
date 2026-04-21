@@ -312,7 +312,8 @@ namespace Internal.Runtime.TypeLoader
                                 }
 
                                 bool returnDroppingAsyncThunk = slotMethod.AsyncVariant
-                                    && !slotMethod.NameAndSignature.Equals(targetMethodNameAndSignature);
+                                    && !slotMethod.NameAndSignature.ReturnTypeHasInstantiation
+                                    && targetMethodNameAndSignature.ReturnTypeHasInstantiation;
                                 bool asyncVariant = slotMethod.AsyncVariant && !returnDroppingAsyncThunk;
 
                                 return (InstantiatedMethod)context.ResolveGenericMethodInstantiation(false, asyncVariant, returnDroppingAsyncThunk, interfaceImplType, targetMethodNameAndSignature, slotMethod.Instantiation);
@@ -508,7 +509,8 @@ namespace Internal.Runtime.TypeLoader
                     TypeSystemContext context = slotMethod.Context;
 
                     bool returnDroppingAsyncThunk = slotMethod.AsyncVariant
-                        && !parsedCallingNameAndSignature.Equals(targetMethodNameAndSignature);
+                        && !slotMethod.NameAndSignature.ReturnTypeHasInstantiation
+                        && targetMethodNameAndSignature.ReturnTypeHasInstantiation;
                     bool asyncVariant = slotMethod.AsyncVariant && !returnDroppingAsyncThunk;
 
                     return (InstantiatedMethod)context.ResolveGenericMethodInstantiation(false, asyncVariant, returnDroppingAsyncThunk, targetType, targetMethodNameAndSignature, slotMethod.Instantiation);
