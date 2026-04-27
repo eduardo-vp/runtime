@@ -108,6 +108,17 @@ namespace ILCompiler.DependencyAnalysis
                                 "Property associated with reflectable accessor");
                         }
                     }
+
+                    foreach (EventDefinitionHandle eventHandle in declaringType.GetEvents())
+                    {
+                        EventAccessors accessors = reader.GetEventDefinition(eventHandle).GetAccessors();
+                        if (accessors.Adder == methodHandle || accessors.Remover == methodHandle || accessors.Raiser == methodHandle)
+                        {
+                            dependencies.Add(
+                                factory.EventMetadata(new EventPseudoDesc((EcmaType)owningType, eventHandle)),
+                                "Event associated with reflectable accessor");
+                        }
+                    }
                 }
             }
 

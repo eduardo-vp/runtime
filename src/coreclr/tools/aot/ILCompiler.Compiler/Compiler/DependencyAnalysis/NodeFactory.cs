@@ -580,6 +580,11 @@ namespace ILCompiler.DependencyAnalysis
                 return new PropertyMetadataNode(property);
             });
 
+            _eventsWithMetadata = new NodeCache<EventPseudoDesc, EventMetadataNode>(@event =>
+            {
+                return new EventMetadataNode(@event);
+            });
+
             _modulesWithMetadata = new NodeCache<ModuleDesc, ModuleMetadataNode>(module =>
             {
                 return new ModuleMetadataNode(module);
@@ -1475,6 +1480,16 @@ namespace ILCompiler.DependencyAnalysis
             // in the dependency graph otherwise.
             Debug.Assert(MetadataManager is UsageBasedMetadataManager);
             return _propertiesWithMetadata.GetOrAdd(property);
+        }
+
+        private NodeCache<EventPseudoDesc, EventMetadataNode> _eventsWithMetadata;
+
+        internal EventMetadataNode EventMetadata(EventPseudoDesc @event)
+        {
+            // These are only meaningful for UsageBasedMetadataManager. We should not have them
+            // in the dependency graph otherwise.
+            Debug.Assert(MetadataManager is UsageBasedMetadataManager);
+            return _eventsWithMetadata.GetOrAdd(@event);
         }
 
         private NodeCache<ModuleDesc, ModuleMetadataNode> _modulesWithMetadata;
