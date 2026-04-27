@@ -54,31 +54,18 @@ namespace ILCompiler.DependencyAnalysis
                 AddDependenciesDueToCustomAttributes(ref dependencies, genericParameterCondition, factory, method.Module, parameter.GetCustomAttributes(), method);
             }
 
-            // We don't model properties and events as separate entities within the compiler, so ensuring
-            // we can generate custom attributes for the associated events and properties from here
-            // is as good as any other place.
+            // Events are not modeled as separate entities within the compiler, so ensuring
+            // we can generate custom attributes for the associated events from here is as good
+            // as any other place. Properties are modeled via PropertyMetadataNode, so the
+            // associated property's custom attributes are pulled in via that node.
             //
-            // As a performance optimization, we look for associated events and properties only
-            // if the method is SpecialName. This is required for CLS compliance and compilers we
-            // care about emit accessors like this.
-            object propertyCondition = GetMetadataApiDependency(factory, "Property"u8);
+            // As a performance optimization, we look for associated events only if the method is
+            // SpecialName. This is required for CLS compliance and compilers we care about emit
+            // accessors like this.
             if ((methodDef.Attributes & MethodAttributes.SpecialName) != 0)
             {
                 TypeDefinition declaringType = reader.GetTypeDefinition(methodDef.GetDeclaringType());
                 var mdManager = (UsageBasedMetadataManager)factory.MetadataManager;
-
-                foreach (PropertyDefinitionHandle propertyHandle in declaringType.GetProperties())
-                {
-                    PropertyDefinition property = reader.GetPropertyDefinition(propertyHandle);
-                    PropertyAccessors accessors = property.GetAccessors();
-
-                    if (accessors.Getter == methodHandle || accessors.Setter == methodHandle)
-                    {
-                        // Avoid analyzing the same custom attributes (and producing the same diagnostics) twice.
-                        if (mdManager.TryRegisterPropertyCustomAttributesProcessed(method.Module, propertyHandle))
-                            AddDependenciesDueToCustomAttributes(ref dependencies, propertyCondition, factory, method.Module, property.GetCustomAttributes(), new PropertyPseudoDesc(method.OwningType, propertyHandle));
-                    }
-                }
 
                 object eventCondition = GetMetadataApiDependency(factory, "Event"u8);
                 foreach (EventDefinitionHandle eventHandle in declaringType.GetEvents())
@@ -114,6 +101,11 @@ namespace ILCompiler.DependencyAnalysis
         {
             FieldDefinition fieldDef = field.MetadataReader.GetFieldDefinition(field.Handle);
             AddDependenciesDueToCustomAttributes(ref dependencies, GetMetadataApiDependency(factory, "Field"u8), factory, field.Module, fieldDef.GetCustomAttributes(), field);
+        }
+
+        public static void AddDependenciesDueToCustomAttributes(ref CombinedDependencyList dependencies, NodeFactory factory, PropertyPseudoDesc property)
+        {
+            AddDependenciesDueToCustomAttributes(ref dependencies, GetMetadataApiDependency(factory, "Property"u8), factory, property.OwningType.Module, property.GetCustomAttributes, property);
         }
 
         public static void AddDependenciesDueToCustomAttributes(ref CombinedDependencyList dependencies, NodeFactory factory, EcmaAssembly assembly)
