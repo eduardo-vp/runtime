@@ -89,8 +89,8 @@ namespace ILCompiler.DependencyAnalysis
                     dependencies.Add(factory.AnalysisCharacteristic("StackTraceHiddenMetadataPresent"), "Method is StackTraceHidden");
                 }
 
-                // If this method is a property accessor, ensure metadata for the associated
-                // property is generated as well. Properties are not modeled as first-class
+                // If this method is a property or event accessor, ensure metadata for the associated
+                // property or event is generated as well. Properties/events are not modeled as first-class
                 // entities in the type system, so we discover them here from their accessors.
                 // As a performance optimization, only SpecialName methods can be accessors.
                 if ((_method.Attributes & MethodAttributes.SpecialName) != 0)
