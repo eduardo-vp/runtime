@@ -59,7 +59,7 @@ namespace System.Diagnostics
         /// the DiagnosticIP values from the async continuation chain.
         /// Returns null if not inside a dispatch or no valid continuation IPs exist.
         /// </summary>
-        private static unsafe IntPtr[]? CollectAsyncContinuationIPs()
+        internal static unsafe IntPtr[]? CollectAsyncContinuationIPs()
         {
             AsyncDispatcherInfo* pInfo = AsyncDispatcherInfo.t_current;
             if (pInfo is null)

@@ -155,11 +155,70 @@ namespace System.Diagnostics
             const int SystemDiagnosticsStackDepth = 2;
 
             frameIndex += SystemDiagnosticsStackDepth;
-            IntPtr[] frameArray = new IntPtr[frameIndex + 1];
-            int returnedFrameCount = RuntimeImports.RhGetCurrentThreadStackTrace(frameArray);
-            int realFrameCount = (returnedFrameCount >= 0 ? returnedFrameCount : frameArray.Length);
 
-            IntPtr ipAddress = (frameIndex < realFrameCount) ? frameArray[frameIndex] : IntPtr.Zero;
+            // Get the total frame count first
+            // We cannot get only (frameIndex + 1) frames because there might be hidden frames (stubs) that we need to skip.
+            int totalFrameCount = -RuntimeImports.RhGetCurrentThreadStackTrace(Array.Empty<IntPtr>());
+            Debug.Assert(totalFrameCount >= 0);
+
+            IntPtr[] frameArray = new IntPtr[totalFrameCount];
+            int returnedFrameCount = RuntimeImports.RhGetCurrentThreadStackTrace(frameArray);
+            Debug.Assert(returnedFrameCount == totalFrameCount);
+
+            IntPtr ipAddress = IntPtr.Zero;
+            StackTraceMetadataCallbacks stackTraceCallbacks = RuntimeAugments.StackTraceCallbacksIfAvailable;
+
+            IntPtr[]? continuationIPs = StackTrace.CollectAsyncContinuationIPs();
+
+            int visibleIndex = 0;
+            for (int i = 0; i < totalFrameCount; i++)
+            {
+                IntPtr ip = frameArray[i];
+
+                if (stackTraceCallbacks != null)
+                {
+                    IntPtr methodStart = RuntimeImports.RhFindMethodStartAddress(ip);
+                    int offset = (int)((nint)ip - (nint)methodStart);
+                    stackTraceCallbacks.TryGetMethodStackFrameInfo(methodStart, offset, false,
+                        out _, out _, out _, out bool isHidden, out _, out _, out _);
+
+                    bool isBoundary = stackTraceCallbacks.IsAsyncDispatchBoundaryMethod(methodStart);
+
+                    // If this frame is the async dispatch boundary and we have continuations,
+                    // inject continuations in place of remaining physical frames.
+                    if (isBoundary && continuationIPs is not null)
+                    {
+                        for (int j = 0; j < continuationIPs.Length; j++)
+                        {
+                            if (visibleIndex == frameIndex)
+                            {
+                                ipAddress = continuationIPs[j];
+                                break;
+                            }
+                            visibleIndex++;
+                        }
+                        InitializeForIpAddress(ipAddress, needFileInfo);
+                        return;
+                    }
+
+                    // Skip diagnostics hidden frames, we count the boundary frame as visible
+                    // if there are not continuations to inject.
+                    if (isHidden && !isBoundary)
+                    {
+                        continue;
+                    }
+
+                }
+
+                if (visibleIndex == frameIndex)
+                {
+                    ipAddress = ip;
+                    break;
+                }
+
+                visibleIndex++;
+            }
+
             InitializeForIpAddress(ipAddress, needFileInfo);
         }
 
