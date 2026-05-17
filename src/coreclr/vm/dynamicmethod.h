@@ -142,6 +142,8 @@ public:
     LCGMethodResolver(DynamicMethodDesc* pDynamicMethod, DynamicMethodTable* pDynamicMethodTable)
         : m_pDynamicMethod{ pDynamicMethod }
         , m_pDynamicMethodTable{ pDynamicMethodTable }
+        , m_recordCodePointer{}
+        , m_DynamicCodePointers{ &m_recordCodePointer }
     {
         LIMITED_METHOD_CONTRACT;
     }
@@ -227,6 +229,7 @@ private:
     DynamicMethodDesc* m_next;
     ChunkAllocator m_jitMetaHeap;
     ChunkAllocator m_jitTempData;
+    DynamicCodePointer m_recordCodePointer;
     DynamicCodePointer* m_DynamicCodePointers;
     DynamicStringLiteral* m_DynamicStringLiterals;
     IndCellList* m_UsedIndCellList;    // list to keep track of all the indirection cells used by the jitted code

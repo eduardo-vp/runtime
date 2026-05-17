@@ -420,7 +420,6 @@ public:
     LoaderAllocator* GetAllocator()             { return m_pAllocator;         }
 
     bool   IsDynamicDomain()                    { return m_isDynamicDomain;    }
-    void   SetDynamicDomain()                   { m_isDynamicDomain = true;    }
 
     const BYTE* GetLoAddr()                     { return m_loAddr;             }
     const BYTE* GetHiAddr()                     { return m_hiAddr;             }
