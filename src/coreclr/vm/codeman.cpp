@@ -48,6 +48,59 @@
 // Default number of jump stubs in a jump stub block
 #define DEFAULT_JUMPSTUBS_PER_BLOCK  32
 
+// ===== TEMP LOCK INSTRUMENTATION =====
+#include <stdio.h>
+namespace LockExp
+{
+    static LONG s_addToCleanupCalls       = 0;
+    static LONG s_addToCleanupTotalWalk   = 0;
+    static LONG s_addToCleanupAlreadyIn   = 0;
+    static LONG s_addToCleanupMaxWalk     = 0;
+    static LONG s_tryFreeCalls            = 0;
+    static LONG s_tryFreeBlockedByIter    = 0;
+    static LONG s_allocJitMetaLcgCalls    = 0;
+    static LONG s_allocJitMetaNonLcgCalls = 0;
+
+    static void Flush(const char* tag)
+    {
+        FILE* f = fopen("C:\\test\\logging_exp.txt", "a");
+        if (f == NULL) return;
+        fprintf(f,
+            "[%s] AddToCleanup calls=%d totalWalk=%d alreadyIn=%d maxWalk=%d | TryFree calls=%d blockedByIter=%d | AllocJitMeta lcg=%d nonLcg=%d\n",
+            tag,
+            (int)s_addToCleanupCalls, (int)s_addToCleanupTotalWalk, (int)s_addToCleanupAlreadyIn, (int)s_addToCleanupMaxWalk,
+            (int)s_tryFreeCalls, (int)s_tryFreeBlockedByIter,
+            (int)s_allocJitMetaLcgCalls, (int)s_allocJitMetaNonLcgCalls);
+        fclose(f);
+    }
+
+    static void MaybeFlush()
+    {
+        // Flush on first call and then every 200 TryFree calls.
+        LONG n = s_tryFreeCalls;
+        if (n == 1 || (n % 200) == 0)
+        {
+            Flush("periodic");
+        }
+    }
+
+    static void MaybeFlushAlloc()
+    {
+        LONG n = s_allocJitMetaLcgCalls + s_allocJitMetaNonLcgCalls;
+        if ((n % 500) == 0)
+        {
+            Flush("alloc");
+        }
+    }
+
+    struct AtExitFlusher
+    {
+        ~AtExitFlusher() { Flush("final"); }
+    };
+    static AtExitFlusher s_atExitFlusher;
+}
+// ===== END TEMP LOCK INSTRUMENTATION =====
+
 SPTR_IMPL(EECodeManager, ExecutionManager, m_pDefaultCodeMan);
 
 SPTR_IMPL(EEJitManager, ExecutionManager, m_pEEJitManager);
@@ -3425,11 +3478,15 @@ BYTE* EECodeGenManager::AllocFromJitMetaHeap(MethodDesc* pMD, size_t blockSize)
     BYTE *pMem = NULL;
     if (pMD->IsLCGMethod())
     {
+        InterlockedIncrement(&LockExp::s_allocJitMetaLcgCalls);
+        LockExp::MaybeFlushAlloc();
         CrstHolder ch(&m_CodeHeapLock);
         pMem = (BYTE*)(void*)pMD->AsDynamicMethodDesc()->GetResolver()->GetJitMetaHeap()->New(blockSize);
     }
     else
     {
+        InterlockedIncrement(&LockExp::s_allocJitMetaNonLcgCalls);
+        LockExp::MaybeFlushAlloc();
         pMem = (BYTE*) (void*)GetJitMetaHeap(pMD)->AllocMem(S_SIZE_T(blockSize));
     }
 
@@ -3994,15 +4051,25 @@ void EECodeGenManager::AddToCleanupList(HostCodeHeap *pCodeHeap)
     // for another dynamic method.
     // It's then possible that the ref count reaches 0 multiple times. If so we simply don't add it again
     // Also on cleanup we check the ref count is actually 0.
+    LockExp::s_addToCleanupCalls++;
+    LONG walk = 0;
     HostCodeHeap *pHeap = m_cleanupList;
     while (pHeap)
     {
+        walk++;
         if (pHeap == pCodeHeap)
         {
+            LockExp::s_addToCleanupAlreadyIn++;
             LOG((LF_BCL, LL_INFO100, "Level2 - CodeHeap [%p, vt(0x%zx)] - Already in list\n", pCodeHeap, *(size_t*)pCodeHeap));
             break;
         }
         pHeap = pHeap->m_pNextHeapToRelease;
+    }
+    LockExp::s_addToCleanupTotalWalk += walk;
+    if (walk > LockExp::s_addToCleanupMaxWalk)
+    {
+        // Called only under m_CodeHeapLock, so plain assignment is safe.
+        LockExp::s_addToCleanupMaxWalk = walk;
     }
     if (pHeap == NULL)
     {
@@ -4023,10 +4090,13 @@ bool EECodeGenManager::TryFreeHostCodeHeapMemory(HostCodeHeap* pCodeHeap, void* 
     }
     CONTRACTL_END;
 
+    InterlockedIncrement(&LockExp::s_tryFreeCalls);
+    LockExp::MaybeFlush();
     CrstHolder ch(&m_CodeHeapLock);
     if (m_iteratorCount != 0)
     {
         // If we are in the middle of an enumeration, we cannot destroy code heap memory.
+        InterlockedIncrement(&LockExp::s_tryFreeBlockedByIter);
         return false;
     }
 
