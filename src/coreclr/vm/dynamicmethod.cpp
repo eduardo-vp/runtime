@@ -923,7 +923,8 @@ bool DynamicMethodDesc::TryDestroy()
 void LCGMethodResolver::Reset()
 {
     m_DynamicStringLiterals = NULL;
-    m_DynamicCodePointers   = NULL;
+    m_initialCodePointer    = {};
+    m_DynamicCodePointers   = &m_initialCodePointer;
     m_UsedIndCellList       = NULL;
     m_pJumpStubCache        = NULL;
     m_next                  = NULL;
@@ -998,6 +999,10 @@ bool LCGMethodResolver::TryDestroyCodeHeapMemory()
         PRECONDITION(FinalizerThread::IsCurrentThreadFinalizer());
     }
     CONTRACTL_END;
+
+    // We expect m_DynamicCodePointers to contain usually one entry at most.
+    // We shouldn't worry about the cost of taking the code heap lock for each entry.
+    // Similarly for m_pJumpStubCache->m_pBlocks.
 
     while (m_DynamicCodePointers != NULL)
     {
@@ -1543,10 +1548,14 @@ void** LCGMethodResolver::AllocateRecordCodePointer()
     }
     CONTRACTL_END;
 
-    DynamicCodePointer* codePointer = (DynamicCodePointer*)m_jitTempData.New(sizeof(DynamicCodePointer));
-    *codePointer = {};
-    codePointer->m_pNext = m_DynamicCodePointers;
-    m_DynamicCodePointers = codePointer;
+    DynamicCodePointer* codePointer = &m_initialCodePointer;
+    if (codePointer->m_pEntry != NULL)
+    {
+        codePointer = (DynamicCodePointer*)m_jitTempData.New(sizeof(DynamicCodePointer));
+        *codePointer = {};
+        codePointer->m_pNext = m_DynamicCodePointers;
+        m_DynamicCodePointers = codePointer;
+    }
 
     return &codePointer->m_pEntry;
 }
