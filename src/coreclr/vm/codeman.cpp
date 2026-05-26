@@ -94,6 +94,21 @@ static RtlDeleteGrowableFunctionTableFnPtr pRtlDeleteGrowableFunctionTable;
 
 static bool s_publishingActive;              // Publishing to ETW is turned on
 
+namespace
+{
+    // RAII helper used by UnwindInfoTable::FlushPendingEntries
+    class FlushGateHolder
+    {
+        volatile LONG* m_flag;
+    public:
+        explicit FlushGateHolder(volatile LONG* flag) : m_flag(flag) {}
+        ~FlushGateHolder() { InterlockedExchange(m_flag, 0); }
+
+        FlushGateHolder(const FlushGateHolder&) = delete;
+        FlushGateHolder& operator=(const FlushGateHolder&) = delete;
+    };
+}
+
 /****************************************************************************/
 // initialize the entry points for new win8 unwind info publishing functions.
 // return true if the initialize is successful (the functions exist)
@@ -152,6 +167,7 @@ UnwindInfoTable::UnwindInfoTable(ULONG_PTR rangeStart, ULONG_PTR rangeEnd)
     hHandle = NULL;
     pTable = new T_RUNTIME_FUNCTION[cTableMaxCount];
     cPendingCount = 0;
+    m_flushInProgress = 0;
 }
 
 /****************************************************************************/
@@ -248,133 +264,165 @@ void UnwindInfoTable::FlushPendingEntries()
     }
     CONTRACTL_END;
 
-    // Free the old table outside the lock
-    NewArrayHolder<T_RUNTIME_FUNCTION> oldPTable;
-
-    CrstHolder publishLock(&m_publishLock);
-
-    if (hHandle == NULL)
+    // Outer retry loop. On each iteration we attempt to become the sole flusher
+    // for this table. If we win, we drain & publish one batch under m_publishLock,
+    // release the gate, then re-check m_pendingLock. If a thread enqueued during
+    // our hold but lost the gate CAS (so it skipped), we'll catch its entry here
+    // and loop. This avoids stranded entries while preserving the "eager publish"
+    // semantic that callers expect.
+    while (true)
     {
-        // If hHandle is null, it means Register() failed. Skip flushing to avoid calling
-        // RtlGrowFunctionTable with a null handle.
-        CrstHolder pendingLock(&m_pendingLock);
-        cPendingCount = 0;
-        return;
-    }
-
-    // Grab the pending entries under the pending lock, then release it so
-    // other threads can keep accumulating new entries while we publish.
-    T_RUNTIME_FUNCTION localPending[cPendingMaxCount];
-    ULONG localPendingCount;
-    {
-        CrstHolder pendingLock(&m_pendingLock);
-        localPendingCount = cPendingCount;
-        memcpy(localPending, pendingTable, cPendingCount * sizeof(T_RUNTIME_FUNCTION));
-        cPendingCount = 0;
-        INDEBUG( memset(pendingTable, 0xcc, sizeof(pendingTable)); )
-    }
-
-    if (localPendingCount == 0)
-        return;
-
-    // Sort the pending entries by BeginAddress.
-    // Use a simple insertion sort since cPendingMaxCount is small (32).
-    static_assert(cPendingMaxCount == 32,
-        "cPendingMaxCount was updated and might be too large for insertion sort, consider using a better algorithm");
-    for (ULONG i = 1; i < localPendingCount; i++)
-    {
-        T_RUNTIME_FUNCTION key = localPending[i];
-        ULONG j = i;
-        while (j > 0 && localPending[j - 1].BeginAddress > key.BeginAddress)
+        // Gate: only one thread flushes at a time on this table.
+        if (InterlockedCompareExchange((LONG*)&m_flushInProgress, 1, 0) != 0)
         {
-            localPending[j] = localPending[j - 1];
-            j--;
-        }
-        localPending[j] = key;
-    }
-
-    // Fast path: if all pending entries can be appended in order with room to spare,
-    // we can just append and call RtlGrowFunctionTable.
-    if (cTableCurCount + localPendingCount <= cTableMaxCount
-        && (cTableCurCount == 0 || pTable[cTableCurCount - 1].BeginAddress < localPending[0].BeginAddress))
-    {
-        memcpy(&pTable[cTableCurCount], localPending, localPendingCount * sizeof(T_RUNTIME_FUNCTION));
-        cTableCurCount += localPendingCount;
-        pRtlGrowFunctionTable(hHandle, cTableCurCount);
-
-        STRESS_LOG5(LF_JIT, LL_INFO1000, "FlushPendingEntries Handle: %p [%p, %p] APPENDED 0x%x entries, now 0x%x\n",
-            hHandle, iRangeStart, iRangeEnd, localPendingCount, cTableCurCount);
-        return;
-    }
-
-    // Merge main table and pending entries.
-    // Calculate the new table size: live entries from main table + all pending entries
-    ULONG liveCount = cTableCurCount - cDeletedEntries;
-    ULONG newCount = liveCount + localPendingCount;
-    ULONG desiredSpace = newCount * 5 / 4 + 1;  // Increase by 20%
-
-    STRESS_LOG7(LF_JIT, LL_INFO100, "FlushPendingEntries Handle: %p [%p, %p] Merging 0x%x live + 0x%x pending into 0x%x max, from 0x%x\n",
-        hHandle, iRangeStart, iRangeEnd, liveCount, localPendingCount, desiredSpace, cTableMaxCount);
-
-    NewArrayHolder<T_RUNTIME_FUNCTION> newPTable(new T_RUNTIME_FUNCTION[desiredSpace]);
-
-    // Merge-sort the main table and pending buffer into newPTable.
-    ULONG mainIdx = 0;
-    ULONG pendIdx = 0;
-    ULONG toIdx = 0;
-
-    while (mainIdx < cTableCurCount && pendIdx < localPendingCount)
-    {
-        // Skip deleted entries in main table
-        if (pTable[mainIdx].UnwindData == 0)
-        {
-            mainIdx++;
-            continue;
+            return;
         }
 
-        if (localPending[pendIdx].BeginAddress < pTable[mainIdx].BeginAddress)
+        // Scope the gate + oldPTable so the gate is released BEFORE the
+        // re-check below. Otherwise a producer could enqueue, call Flush,
+        // see our gate set, and return with its entry stranded in pending.
         {
-            newPTable[toIdx++] = localPending[pendIdx++];
-        }
-        else
+            // RAII to guarantee the gate is cleared even on exception (e.g. OOM in
+            // the slow path's new T_RUNTIME_FUNCTION[]).
+            FlushGateHolder gateHolder(&m_flushInProgress);
+
+            // Hold pTable from the previous slow-path iteration outside the publish
+            // lock so the deallocation doesn't extend the critical section.
+            NewArrayHolder<T_RUNTIME_FUNCTION> oldPTable;
+
+            {
+                CrstHolder publishLock(&m_publishLock);
+
+                if (hHandle == NULL)
+                {
+                    // Register() failed earlier; drop anything pending so it doesn't
+                    // accumulate forever.
+                    CrstHolder pendingLock(&m_pendingLock);
+                    cPendingCount = 0;
+                }
+                else
+                {
+                    // Drain the pending buffer once.
+                    T_RUNTIME_FUNCTION localPending[cPendingMaxCount];
+                    ULONG localPendingCount;
+                    {
+                        CrstHolder pendingLock(&m_pendingLock);
+                        localPendingCount = cPendingCount;
+                        memcpy(localPending, pendingTable, cPendingCount * sizeof(T_RUNTIME_FUNCTION));
+                        cPendingCount = 0;
+                        INDEBUG( memset(pendingTable, 0xcc, sizeof(pendingTable)); )
+                    }
+
+                    if (localPendingCount != 0)
+                    {
+                        // Sort the pending entries by BeginAddress.
+                        // Use a simple insertion sort since cPendingMaxCount is small (32).
+                        static_assert(cPendingMaxCount == 32,
+                            "cPendingMaxCount was updated and might be too large for insertion sort, consider using a better algorithm");
+                        for (ULONG i = 1; i < localPendingCount; i++)
+                        {
+                            T_RUNTIME_FUNCTION key = localPending[i];
+                            ULONG j = i;
+                            while (j > 0 && localPending[j - 1].BeginAddress > key.BeginAddress)
+                            {
+                                localPending[j] = localPending[j - 1];
+                                j--;
+                            }
+                            localPending[j] = key;
+                        }
+
+                        // Fast path: if all pending entries can be appended in order with room to spare,
+                        // we can just append and call RtlGrowFunctionTable.
+                        if (cTableCurCount + localPendingCount <= cTableMaxCount
+                            && (cTableCurCount == 0 || pTable[cTableCurCount - 1].BeginAddress < localPending[0].BeginAddress))
+                        {
+                            memcpy(&pTable[cTableCurCount], localPending, localPendingCount * sizeof(T_RUNTIME_FUNCTION));
+                            cTableCurCount += localPendingCount;
+                            pRtlGrowFunctionTable(hHandle, cTableCurCount);
+
+                            STRESS_LOG5(LF_JIT, LL_INFO1000, "FlushPendingEntries Handle: %p [%p, %p] APPENDED 0x%x entries, now 0x%x\n",
+                                hHandle, iRangeStart, iRangeEnd, localPendingCount, cTableCurCount);
+                        }
+                        else
+                        {
+                            // Merge main table and pending entries.
+                            ULONG liveCount = cTableCurCount - cDeletedEntries;
+                            ULONG newCount = liveCount + localPendingCount;
+                            ULONG desiredSpace = newCount * 5 / 4 + 1;  // Increase by 20%
+
+                            STRESS_LOG7(LF_JIT, LL_INFO100, "FlushPendingEntries Handle: %p [%p, %p] Merging 0x%x live + 0x%x pending into 0x%x max, from 0x%x\n",
+                                hHandle, iRangeStart, iRangeEnd, liveCount, localPendingCount, desiredSpace, cTableMaxCount);
+
+                            NewArrayHolder<T_RUNTIME_FUNCTION> newPTable(new T_RUNTIME_FUNCTION[desiredSpace]);
+
+                            ULONG mainIdx = 0;
+                            ULONG pendIdx = 0;
+                            ULONG toIdx = 0;
+
+                            while (mainIdx < cTableCurCount && pendIdx < localPendingCount)
+                            {
+                                if (pTable[mainIdx].UnwindData == 0)
+                                {
+                                    mainIdx++;
+                                    continue;
+                                }
+
+                                if (localPending[pendIdx].BeginAddress < pTable[mainIdx].BeginAddress)
+                                {
+                                    newPTable[toIdx++] = localPending[pendIdx++];
+                                }
+                                else
+                                {
+                                    newPTable[toIdx++] = pTable[mainIdx++];
+                                }
+                            }
+
+                            while (mainIdx < cTableCurCount)
+                            {
+                                if (pTable[mainIdx].UnwindData != 0)
+                                    newPTable[toIdx++] = pTable[mainIdx];
+                                mainIdx++;
+                            }
+
+                            while (pendIdx < localPendingCount)
+                            {
+                                newPTable[toIdx++] = localPending[pendIdx++];
+                            }
+
+                            _ASSERTE(toIdx == newCount);
+                            _ASSERTE(toIdx <= desiredSpace);
+
+                            oldPTable = pTable;
+
+                            UnRegister();
+
+                            pTable = newPTable.Extract();
+                            cTableCurCount = toIdx;
+                            cTableMaxCount = desiredSpace;
+                            cDeletedEntries = 0;
+
+                            Register();
+                        }
+                    }
+                }
+            } // publishLock released here
+            // oldPTable destroyed here (freed outside publishLock, before gate release)
+        } // gateHolder destroyed here -> m_flushInProgress = 0 BEFORE the re-check
+
+        // Re-check pending under m_pendingLock. The gate is already released, so
+        // any producer that enqueued and called Flush during our hold either:
+        //   (a) raced with our drain and was picked up, or
+        //   (b) succeeds at its CAS now and publishes its own entry, or
+        //   (c) has not yet attempted CAS -- in which case we see its entry here
+        //       and loop, racing with it for the next CAS. Whoever wins handles it.
+        // No entry can be stranded.
+        bool needRetry;
         {
-            newPTable[toIdx++] = pTable[mainIdx++];
+            CrstHolder pendingLock(&m_pendingLock);
+            needRetry = (cPendingCount != 0);
         }
+        if (!needRetry) return;
     }
-
-    while (mainIdx < cTableCurCount)
-    {
-        if (pTable[mainIdx].UnwindData != 0)
-            newPTable[toIdx++] = pTable[mainIdx];
-        mainIdx++;
-    }
-
-    while (pendIdx < localPendingCount)
-    {
-        newPTable[toIdx++] = localPending[pendIdx++];
-    }
-
-    _ASSERTE(toIdx == newCount);
-    _ASSERTE(toIdx <= desiredSpace);
-
-    oldPTable = pTable;
-
-    // The OS growable function table API (RtlGrowFunctionTable) only supports
-    // appending sorted entries, it cannot shrink, reorder, or remove entries.
-    // We have to tear down the old OS registration and create a new one
-    // combining the old and pending entries while skipping the deleted ones.
-    // We should keep the gap between UnRegister and Register as short as possible,
-    // as OS stack walks will have no unwind info for this range during that
-    // window. The new table is fully built before UnRegister to minimize this gap.
-
-    UnRegister();
-
-    pTable = newPTable.Extract();
-    cTableCurCount = toIdx;
-    cTableMaxCount = desiredSpace;
-    cDeletedEntries = 0;
-
-    Register();
 }
 
 /*****************************************************************************/

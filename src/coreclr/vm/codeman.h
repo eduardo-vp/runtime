@@ -654,6 +654,13 @@ private:
     // pending lock protects pendingTable and cPendingCount.
     Crst                m_publishLock;
     Crst                m_pendingLock;
+
+    // Opportunistic-flush gate. CAS'd 0->1 at the top of FlushPendingEntries; if
+    // it was already 1, the calling thread skips (another thread is already
+    // flushing and will pick up our pending entries). Cleared by the winning
+    // thread after it releases m_publishLock, followed by a re-check of
+    // cPendingCount so no entries are ever stranded.
+    volatile LONG       m_flushInProgress;
 #endif // defined(TARGET_AMD64) && defined(TARGET_WINDOWS)
 };
 
