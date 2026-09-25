@@ -275,7 +275,7 @@ void CrashInfo::VisitModule(MachOModule& module)
         if (last != std::string::npos)
         {
             m_coreclrPath = module.Name().substr(0, last + 1);
-            m_runtimeBaseAddress = module.BaseAddress();
+            m_processInfo.SetRuntimeBaseAddress(module.BaseAddress());
 
             uint64_t symbolOffset;
             if (!module.TryLookupSymbol(DACCESS_TABLE_SYMBOL, &symbolOffset))
@@ -289,7 +289,7 @@ void CrashInfo::VisitModule(MachOModule& module)
             if (module.TryLookupSymbol("DotNetRuntimeInfo", &symbolOffset))
             {
                 m_coreclrPath = GetDirectory(module.Name());
-                m_runtimeBaseAddress = module.BaseAddress();
+                m_processInfo.SetRuntimeBaseAddress(module.BaseAddress());
 
                 RuntimeInfo runtimeInfo { };
                 if (ReadMemory(module.BaseAddress() + symbolOffset, &runtimeInfo, sizeof(RuntimeInfo)))
@@ -307,7 +307,7 @@ void CrashInfo::VisitModule(MachOModule& module)
             if (module.TryLookupSymbol("DotNetRuntimeContractDescriptor", &symbolOffset))
             {
                 m_coreclrPath = GetDirectory(module.Name());
-                m_runtimeBaseAddress = module.BaseAddress();
+                m_processInfo.SetRuntimeBaseAddress(module.BaseAddress());
                 TRACE("Found valid NativeAOT runtime module\n");
             }
         }
