@@ -81,6 +81,12 @@ public static unsafe class ThreadStateDestroyed
             RedirectStandardError = true,
         };
 
+        if (OperatingSystem.IsWindows())
+        {
+            // Avoid running the diagnostic stack walker from an FLS callback during thread teardown.
+            psi.Environment["DOTNET_AssertStacktrace"] = "0";
+        }
+
         psi.Environment["DOTNET_DbgEnableMiniDump"] = "0";
         psi.Environment["DOTNET_EnableCrashReport"] = "0";
 
