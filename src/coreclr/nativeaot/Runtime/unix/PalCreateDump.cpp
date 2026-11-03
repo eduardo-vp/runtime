@@ -16,6 +16,11 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef TARGET_LINUX
+#include <limits.h>
+#include <sys/auxv.h>
+#include "createdump/createdump_sentinel.h"
+#endif
 #if HAVE_PRCTL_H
 #include <sys/prctl.h>
 #include <sys/syscall.h>
@@ -51,6 +56,11 @@
 #include <minipal/utils.h>
 #include <minipal/thread.h>
 #include <generatedumpflags.h>
+
+#ifdef TARGET_LINUX
+static bool g_selfRestartCreatedump = false;
+static const char* const SelfCreateDumpPath = "/proc/self/exe";
+#endif
 
 #if !defined(HOST_MACCATALYST) && !defined(HOST_IOS) && !defined(HOST_TVOS) && !defined(HOST_WASM)
 
@@ -109,6 +119,21 @@ FormatInt64(uint64_t value)
     return buffer;
 }
 
+static
+bool
+CanUseSelfRestartCreatedump(int dumpType, uint32_t flags)
+{
+#ifdef TARGET_LINUX
+    const uint32_t SupportedFlags =
+        GenerateDumpFlagsLoggingEnabled |
+        GenerateDumpFlagsVerboseLoggingEnabled;
+
+    return g_selfRestartCreatedump && dumpType == DumpTypeFull && (flags & ~SupportedFlags) == 0;
+#else
+    return false;
+#endif
+}
+
 /*++
 Function
   BuildCreateDumpCommandLine
@@ -127,15 +152,30 @@ BuildCreateDumpCommandLine(
     const char* dumpName,
     const char* logFileName,
     int dumpType,
-    uint32_t flags)
+    uint32_t flags,
+    bool selfRestart)
 {
-    if (g_szCreateDumpPath == nullptr)
+    const char* program = g_szCreateDumpPath;
+#ifdef TARGET_LINUX
+    if (selfRestart)
+    {
+        program = SelfCreateDumpPath;
+    }
+#endif
+    if (program == nullptr)
     {
         return false;
     }
 
     int argc = 0;
-    argv[argc++] = g_szCreateDumpPath;
+    argv[argc++] = program;
+
+#ifdef TARGET_LINUX
+    if (selfRestart)
+    {
+        argv[argc++] = CREATEDUMP_SENTINEL;
+    }
+#endif
 
     if (dumpName != nullptr)
     {
@@ -522,7 +562,8 @@ PalGenerateCoreDump(
     {
         dumpName = nullptr;
     }
-    bool result = BuildCreateDumpCommandLine(argvCreateDump, dumpName, nullptr, dumpType, flags);
+    bool selfRestart = CanUseSelfRestartCreatedump(dumpType, flags);
+    bool result = BuildCreateDumpCommandLine(argvCreateDump, dumpName, nullptr, dumpType, flags, selfRestart);
     if (result)
     {
         result = CreateCrashDump(argvCreateDump, errorMessageBuffer, cbErrorMessageBuffer);
@@ -552,7 +593,14 @@ PalCreateDumpInitialize()
 #if !defined(HOST_MACCATALYST) && !defined(HOST_IOS) && !defined(HOST_TVOS) && !defined(HOST_WASM)
     bool enabled = false;
     RhConfig::Environment::TryGetBooleanValue("DbgEnableMiniDump", &enabled);
-    if (enabled)
+    bool initialize = enabled;
+#ifdef TARGET_LINUX
+    // On-demand diagnostic requests can use the linked writer even when automatic crash dumps are disabled.
+    g_selfRestartCreatedump = g_createdumpLinked && g_createdumpDispatchSupported &&
+        getauxval(AT_SECURE) == 0 && access(SelfCreateDumpPath, X_OK) == 0;
+    initialize = initialize || g_selfRestartCreatedump;
+#endif
+    if (initialize)
     {
         char* dumpName = nullptr;
         RhConfig::Environment::TryGetStringValue("DbgMiniDumpName", &dumpName);
@@ -605,7 +653,8 @@ PalCreateDumpInitialize()
         char* program = nullptr;
         
         // Check if user provided a custom path to createdump tool directory
-        if (RhConfig::Environment::TryGetStringValue("DbgCreateDumpToolPath", &dumpToolPath))
+        bool customDumpToolPath = RhConfig::Environment::TryGetStringValue("DbgCreateDumpToolPath", &dumpToolPath);
+        if (customDumpToolPath)
         {
             // Use the provided directory path and concatenate with "createdump"
             size_t dumpToolPathLen = strlen(dumpToolPath);
@@ -629,17 +678,40 @@ PalCreateDumpInitialize()
         {
             // Default behavior: derive path from current library location
             Dl_info info;
-            if (dladdr((void*)&PalCreateDumpInitialize, &info) == 0)
+            const char* modulePath;
+#ifdef TARGET_LINUX
+            char executablePath[PATH_MAX + 1];
+#endif
+            if (dladdr((void*)&PalCreateDumpInitialize, &info) != 0)
+            {
+                modulePath = info.dli_fname;
+            }
+#ifdef TARGET_LINUX
+            else if (g_selfRestartCreatedump)
+            {
+                // dladdr cannot find the main module in a fully static executable.
+                // Self-restart already requires /proc/self/exe, so use it for the fallback tool directory too.
+                ssize_t length = readlink(SelfCreateDumpPath, executablePath, sizeof(executablePath) - 1);
+                if (length < 0 || static_cast<size_t>(length) == sizeof(executablePath) - 1)
+                {
+                    fprintf(stderr, "Could not read the executable path for createdump\n");
+                    return false;
+                }
+                executablePath[length] = '\0';
+                modulePath = executablePath;
+            }
+#endif
+            else
             {
                 return false;
             }
-            int programLen = strlen(info.dli_fname) + strlen(DumpGeneratorName) + 1;
+            int programLen = strlen(modulePath) + strlen(DumpGeneratorName) + 1;
             program = (char*)malloc(programLen);
             if (program == nullptr)
             {
                 return false;
             }
-            strncpy(program, info.dli_fname, programLen);
+            strncpy(program, modulePath, programLen);
             char *last = strrchr(program, '/');
             if (last != nullptr)
             {
@@ -654,7 +726,13 @@ PalCreateDumpInitialize()
 
         g_szCreateDumpPath = program;
 
-        if (!BuildCreateDumpCommandLine(g_argvCreateDump, dumpName, logFilePath, dumpType, flags))
+#ifdef TARGET_LINUX
+        // An explicit tool path must win over the linked implementation. Secure execution
+        // and bootstraps without sentinel dispatch must never re-enter the application.
+        g_selfRestartCreatedump = g_selfRestartCreatedump && !customDumpToolPath;
+#endif
+        bool selfRestart = CanUseSelfRestartCreatedump(dumpType, flags);
+        if (enabled && !BuildCreateDumpCommandLine(g_argvCreateDump, dumpName, logFilePath, dumpType, flags, selfRestart))
         {
             return false;
         }

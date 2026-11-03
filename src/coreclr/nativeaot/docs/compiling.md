@@ -33,6 +33,44 @@ or by adding the following element to the project file:
 
 Adding an explicit package reference to `Microsoft.DotNet.ILCompiler` will generate warning when publishing and it can run into version errors. When possible, use the default `Microsoft.DotNet.ILCompiler` version to publish a native AOT application.
 
+## Linking the crash-dump generator
+
+Linux x64 and Arm64 Native AOT executables can include the crash-dump generator instead
+of deploying a separate `createdump` executable:
+
+```xml
+<PropertyGroup>
+  <CreatedumpSupport>true</CreatedumpSupport>
+</PropertyGroup>
+```
+
+This option is disabled by default to avoid increasing executable size. It requires the
+standard Native AOT entry point and is not supported for native libraries or applications
+using `CustomNativeMain`.
+
+To collect a full dump automatically on a crash, set:
+
+```sh
+export DOTNET_DbgEnableMiniDump=1
+export DOTNET_DbgMiniDumpType=4
+export DOTNET_DbgMiniDumpName=/tmp/coredump.%p
+```
+
+The crashing process starts another instance of its own executable through `/proc/self/exe`.
+That instance writes the dump without initializing the managed runtime. The usual Linux
+permissions for inspecting the crashing process still apply.
+
+When runtime diagnostic support is enabled, on-demand full-dump requests also use
+the linked generator. They do not require `DOTNET_DbgEnableMiniDump`.
+
+Only full dumps are supported, as with standalone `createdump` for Native AOT.
+Diagnostic logging, verbose logging, and `DOTNET_CreateDumpLogToFile` work with the linked
+generator. Setting `DOTNET_DbgCreateDumpToolPath` explicitly selects the external tool
+instead. Unsupported dump types or flags also retain the external-tool path, including
+its existing validation errors. Dump generation on other platforms and for other output
+configurations is unchanged. Unix configurations without linked support, including
+secure-execution mode, continue to use the external tool.
+
 ## Cross-architecture compilation
 
 Native AOT toolchain allows targeting ARM64 on an x64 host and vice versa for both Windows and Linux. Cross-OS compilation, such as targeting Linux on a Windows host, is not supported.
